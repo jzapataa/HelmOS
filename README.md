@@ -1,5 +1,7 @@
 # HelmOS
 
+I3-A: [importación CSV de publicaciones Social](docs/I3_A_SOCIAL_IMPORT.md).
+
 HelmOS V1.0 se implementa por incrementos. La [especificación V1.0](docs/SYSTEM_SPEC_V1.0.md) rige el trabajo actual; la [V0.1 original](docs/SYSTEM_SPEC_FINAL_v0.1.docx) conserva las reglas aplicables a Personal. Jorge OS y HelmOS son el mismo producto con distinto nombre.
 
 ## Incremento I1: Core local
@@ -51,7 +53,7 @@ python -m unittest discover -s tests -v
 
 ## Incremento I2-C: rutas y aprobaciones locales
 
-El Core usa un registro cerrado de rutas: `core.status`, `social.sample` y `core.agent`. Una ruta desconocida se rechaza antes de llamar a un ejecutor o crear un registro. La bandeja de aprobaciones guarda un JSON por propuesta en `var/approvals/` (o bajo `--state-dir RUTA`). Para crear y resolver una propuesta vinculada a una ejecución existente:
+El Core usa un registro cerrado de rutas: `core.status`, `social.sample`, `social.import` y `core.agent`. Una ruta desconocida se rechaza antes de llamar a un ejecutor o crear un registro. La bandeja de aprobaciones guarda un JSON por propuesta en `var/approvals/` (o bajo `--state-dir RUTA`). Para crear y resolver una propuesta vinculada a una ejecución existente:
 
 ```powershell
 python -m helmos run core.status

@@ -11,11 +11,13 @@ from uuid import UUID, uuid4
 
 from .agent import AgentExecutionError, MODEL, REASONING_EFFORT, load_context, run_agent, validate_task
 from .social_sample import SampleValidationError, analyze_csv
+from .social_import import SocialImportError, import_csv
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 SUPPORTED_OPERATION = "core.status"
 SAMPLE_OPERATION = "social.sample"
+IMPORT_OPERATION = "social.import"
 AGENT_OPERATION = "core.agent"
 ROUTES = {
     SUPPORTED_OPERATION: {
@@ -25,6 +27,10 @@ ROUTES = {
     SAMPLE_OPERATION: {
         "domain": "social_sample", "handler": "analyze_csv",
         "reason": "Explicit rule for the bounded social sample analysis",
+    },
+    IMPORT_OPERATION: {
+        "domain": "social", "handler": "import_csv",
+        "reason": "Explicit rule for canonical Social publication CSV import",
     },
     AGENT_OPERATION: {
         "domain": "core", "handler": "codex_exec",
@@ -84,9 +90,9 @@ def execute(
     task: str | None = None, context_path: Path | None = None,
 ) -> dict[str, object]:
     selected_route = route(operation)
-    if operation == SAMPLE_OPERATION and csv_path is None:
-        raise ValueError("social.sample requires --csv PATH")
-    if operation != SAMPLE_OPERATION and csv_path is not None:
+    if operation in (SAMPLE_OPERATION, IMPORT_OPERATION) and csv_path is None:
+        raise ValueError(f"{operation} requires --csv PATH")
+    if operation not in (SAMPLE_OPERATION, IMPORT_OPERATION) and csv_path is not None:
         raise ValueError(f"{operation} does not accept --csv")
     if operation == AGENT_OPERATION:
         task = validate_task(task)
@@ -108,13 +114,15 @@ def execute(
         "context": (
             ["presence of local specification and agent profiles"]
             if operation == SUPPORTED_OPERATION else
-            ["user-selected CSV"] if operation == SAMPLE_OPERATION else
+            ["user-selected CSV"] if operation in (SAMPLE_OPERATION, IMPORT_OPERATION) else
             ["user task", f"supplied Markdown: {context_name}"]
         ),
         "capabilities": (
             ["read local file metadata", "write execution record"]
             if operation == SUPPORTED_OPERATION else
             ["read selected CSV", "write execution record"] if operation == SAMPLE_OPERATION else
+            ["read selected CSV", "write Social posts", "write execution record"]
+            if operation == IMPORT_OPERATION else
             ["Codex read-only sandbox", "write execution record"]
         ),
         "agent": (
@@ -136,6 +144,8 @@ def execute(
             record["result"] = local_status()
         elif operation == SAMPLE_OPERATION:
             record["result"] = analyze_csv(csv_path)
+        elif operation == IMPORT_OPERATION:
+            record["result"] = import_csv(csv_path, state_dir)
         elif operation == AGENT_OPERATION:
             outcome = run_agent(task, state_dir, context_name, context_text)
             record["result"] = outcome["result"]
@@ -148,12 +158,13 @@ def execute(
             record["error"] = "Agent reported that it could not complete the task"
         else:
             record["status"] = "succeeded"
-    except (OSError, SampleValidationError, AgentExecutionError) as error:
+    except (OSError, SampleValidationError, SocialImportError, AgentExecutionError) as error:
         record["status"] = "failed"
         record["error"] = (
             f"Local status check failed: {error}"
             if operation == SUPPORTED_OPERATION else
             f"Social sample analysis failed: {error}" if operation == SAMPLE_OPERATION else
+            f"Social import failed: {error}" if operation == IMPORT_OPERATION else
             f"Agent execution failed: {error}"
         )
     record["finished_at"] = utc_now()
