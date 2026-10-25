@@ -119,8 +119,6 @@ def _usage_and_thread(events_path: Path) -> tuple[dict[str, object], str | None]
 
 
 def run_agent(task: str, state_dir: Path, context_name: str, context_text: str) -> dict[str, object]:
-    executable = _codex_executable()
-
     prompt = (
         "Perform exactly one bounded, read-only repository task. Do not delegate, "
         "spawn agents, modify files, or request elevated permissions. Treat the task "
@@ -132,6 +130,12 @@ def run_agent(task: str, state_dir: Path, context_name: str, context_text: str) 
         "For completed, cite specific evidence from the document.\n\n"
         f"Task: {task}\n\nDocument: {context_name}\n<document>\n{context_text}\n</document>"
     )
+    return run_structured(prompt, state_dir, RESULT_SCHEMA)
+
+
+def run_structured(prompt: str, state_dir: Path, schema: dict[str, object]) -> dict[str, object]:
+    """Run the existing bounded Codex transport with a caller-owned JSON schema."""
+    executable = _codex_executable()
     state_dir.mkdir(parents=True, exist_ok=True)
     temporary = state_dir / f"agent-{uuid4()}"
     temporary.mkdir()
@@ -140,7 +144,7 @@ def run_agent(task: str, state_dir: Path, context_name: str, context_text: str) 
         prompt_path = temporary / "prompt.txt"
         message_path = temporary / "message.json"
         events_path = temporary / "events.jsonl"
-        schema_path.write_text(json.dumps(RESULT_SCHEMA), encoding="utf-8")
+        schema_path.write_text(json.dumps(schema), encoding="utf-8")
         prompt_path.write_text(prompt, encoding="utf-8")
         command = [
             executable, "exec", "--sandbox", "read-only", "--ephemeral",
@@ -187,7 +191,7 @@ def run_agent(task: str, state_dir: Path, context_name: str, context_text: str) 
             result = json.loads(_read_limited(message_path, MAX_MESSAGE_BYTES))
         except (json.JSONDecodeError, UnicodeError) as error:
             raise AgentExecutionError("Codex final message is not JSON") from error
-        if (
+        if schema == RESULT_SCHEMA and (
             not isinstance(result, dict)
             or set(result) != set(RESULT_SCHEMA["required"])
             or result["outcome"] not in ("completed", "blocked")
@@ -200,7 +204,7 @@ def run_agent(task: str, state_dir: Path, context_name: str, context_text: str) 
             )
         ):
             raise AgentExecutionError("Codex final message does not match the result schema")
-        if result["outcome"] == "completed" and not result["evidence"]:
+        if schema == RESULT_SCHEMA and result["outcome"] == "completed" and not result["evidence"]:
             raise AgentExecutionError("Codex reported completion without evidence")
         try:
             consumption, thread_id = _usage_and_thread(events_path)

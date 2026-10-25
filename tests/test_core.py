@@ -47,7 +47,7 @@ class CoreCliTests(unittest.TestCase):
         self.assertEqual(len(list((self.state_dir / "runs").glob("*.json"))), 1)
 
     def test_unsupported_operation_does_not_create_an_execution(self) -> None:
-        completed = self.cli("run", "social.analyze")
+        completed = self.cli("run", "social.unknown")
         self.assertEqual(completed.returncode, 2)
         self.assertIn("Unsupported operation", completed.stderr)
         self.assertFalse((self.state_dir / "runs").exists())

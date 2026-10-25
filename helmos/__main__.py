@@ -22,10 +22,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     commands = parser.add_subparsers(dest="command", required=True)
     run = commands.add_parser("run", help="Execute a supported local operation")
-    run.add_argument("operation", help="Supported: core.status, social.sample, social.import, core.agent")
+    run.add_argument("operation", help="Supported: core.status, social.sample, social.import, social.analyze, core.agent")
     run.add_argument("--csv", type=Path, help="CSV input for social.sample or social.import")
     run.add_argument("--task", help="One read-only repository task for core.agent")
     run.add_argument("--context", type=Path, help="README.md or docs/NAME.md for core.agent")
+    run.add_argument("--platform", choices=("Instagram", "TikTok", "LinkedIn"), help="Platform filter for social.analyze")
+    run.add_argument("--from", dest="from_date", help="Start date YYYY-MM-DD for social.analyze")
+    run.add_argument("--to", dest="to_date", help="End date YYYY-MM-DD for social.analyze")
     show = commands.add_parser("show", help="Recover an execution by ID")
     show.add_argument("identifier")
     social = commands.add_parser("social", help="Read locally imported publications")
@@ -48,7 +51,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.command == "run":
-            record = execute(args.operation, args.state_dir, args.csv, args.task, args.context)
+            record = execute(args.operation, args.state_dir, args.csv, args.task, args.context,
+                             args.platform, args.from_date, args.to_date)
         elif args.command == "show":
             record = read_execution(args.identifier, args.state_dir)
         elif args.command == "social":

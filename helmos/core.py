@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 from .agent import AgentExecutionError, MODEL, REASONING_EFFORT, load_context, run_agent, validate_task
 from .social_sample import SampleValidationError, analyze_csv
 from .social_import import SocialImportError, import_csv
+from .social_analyze import SocialAnalysisError, analyze
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -19,6 +20,7 @@ SUPPORTED_OPERATION = "core.status"
 SAMPLE_OPERATION = "social.sample"
 IMPORT_OPERATION = "social.import"
 AGENT_OPERATION = "core.agent"
+ANALYZE_OPERATION = "social.analyze"
 ROUTES = {
     SUPPORTED_OPERATION: {
         "domain": "core", "handler": "local_status",
@@ -31,6 +33,10 @@ ROUTES = {
     IMPORT_OPERATION: {
         "domain": "social", "handler": "import_csv",
         "reason": "Explicit rule for canonical Social publication CSV import",
+    },
+    ANALYZE_OPERATION: {
+        "domain": "social", "handler": "analyze",
+        "reason": "Explicit on-demand editorial analysis of imported publications",
     },
     AGENT_OPERATION: {
         "domain": "core", "handler": "codex_exec",
@@ -88,6 +94,7 @@ def _write_atomic(path: Path, record: dict[str, object]) -> None:
 def execute(
     operation: str, state_dir: Path, csv_path: Path | None = None,
     task: str | None = None, context_path: Path | None = None,
+    platform: str | None = None, from_date: str | None = None, to_date: str | None = None,
 ) -> dict[str, object]:
     selected_route = route(operation)
     if operation in (SAMPLE_OPERATION, IMPORT_OPERATION) and csv_path is None:
@@ -101,7 +108,12 @@ def execute(
         raise ValueError(f"{operation} does not accept --task")
     elif context_path is not None:
         raise ValueError(f"{operation} does not accept --context")
+    if operation != ANALYZE_OPERATION and any(value is not None for value in (platform, from_date, to_date)):
+        raise ValueError(f"{operation} does not accept analysis filters")
     request: dict[str, str] = {"operation": operation}
+    if operation == ANALYZE_OPERATION:
+        request.update({key: value for key, value in
+                        (("platform", platform), ("from", from_date), ("to", to_date)) if value is not None})
     if csv_path is not None:
         request["csv_path"] = str(csv_path)
     if task is not None:
@@ -115,6 +127,7 @@ def execute(
             ["presence of local specification and agent profiles"]
             if operation == SUPPORTED_OPERATION else
             ["user-selected CSV"] if operation in (SAMPLE_OPERATION, IMPORT_OPERATION) else
+            ["imported Social publications", "editorial skill"] if operation == ANALYZE_OPERATION else
             ["user task", f"supplied Markdown: {context_name}"]
         ),
         "capabilities": (
@@ -123,6 +136,8 @@ def execute(
             ["read selected CSV", "write execution record"] if operation == SAMPLE_OPERATION else
             ["read selected CSV", "write Social posts", "write execution record"]
             if operation == IMPORT_OPERATION else
+            ["read imported publications", "Codex read-only sandbox", "write Markdown report", "write execution record"]
+            if operation == ANALYZE_OPERATION else
             ["Codex read-only sandbox", "write execution record"]
         ),
         "agent": (
@@ -130,7 +145,7 @@ def execute(
                 "engine": "codex exec", "profile": None, "thread_id": None,
                 "model_requested": MODEL, "reasoning_effort_requested": REASONING_EFFORT,
             }
-            if operation == AGENT_OPERATION else None
+            if operation in (AGENT_OPERATION, ANALYZE_OPERATION) else None
         ),
         "status": "running",
         "started_at": utc_now(),
@@ -146,6 +161,11 @@ def execute(
             record["result"] = analyze_csv(csv_path)
         elif operation == IMPORT_OPERATION:
             record["result"] = import_csv(csv_path, state_dir)
+        elif operation == ANALYZE_OPERATION:
+            outcome = analyze(state_dir, record["id"], platform, from_date, to_date)
+            record["result"] = outcome["result"]
+            record["consumption"] = outcome["consumption"]
+            record["agent"]["thread_id"] = outcome["thread_id"]
         elif operation == AGENT_OPERATION:
             outcome = run_agent(task, state_dir, context_name, context_text)
             record["result"] = outcome["result"]
@@ -158,13 +178,14 @@ def execute(
             record["error"] = "Agent reported that it could not complete the task"
         else:
             record["status"] = "succeeded"
-    except (OSError, SampleValidationError, SocialImportError, AgentExecutionError) as error:
+    except (OSError, SampleValidationError, SocialImportError, SocialAnalysisError, AgentExecutionError) as error:
         record["status"] = "failed"
         record["error"] = (
             f"Local status check failed: {error}"
             if operation == SUPPORTED_OPERATION else
             f"Social sample analysis failed: {error}" if operation == SAMPLE_OPERATION else
             f"Social import failed: {error}" if operation == IMPORT_OPERATION else
+            f"Social analysis failed: {error}" if operation == ANALYZE_OPERATION else
             f"Agent execution failed: {error}"
         )
     record["finished_at"] = utc_now()
@@ -199,11 +220,12 @@ def _valid_record(record: object, identifier: str) -> bool:
         return False
     if not isinstance(request.get("operation"), str) or not request["operation"]:
         return False
-    if request["operation"] == AGENT_OPERATION:
+    if request["operation"] in (AGENT_OPERATION, ANALYZE_OPERATION):
         agent = record.get("agent")
         if (
-            not isinstance(request.get("task"), str)
-            or not isinstance(request.get("context_path"), str)
+            (request["operation"] == AGENT_OPERATION and (
+                not isinstance(request.get("task"), str)
+                or not isinstance(request.get("context_path"), str)))
             or not isinstance(agent, dict)
             or agent.get("engine") != "codex exec"
             or agent.get("profile") is not None
