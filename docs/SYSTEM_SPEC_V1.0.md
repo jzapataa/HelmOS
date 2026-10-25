@@ -1,0 +1,56 @@
+# HelmOS V1.0 — especificación de implementación
+
+Estado: requisitos aprobados para V1.0 y decisiones técnicas de arranque. La V0.1, titulada originalmente «Jorge OS», describe el mismo producto con otro nombre. Esta especificación define una evolución; no altera retrospectivamente `SYSTEM_SPEC_FINAL_v0.1.docx`.
+
+## 1. Alcance y límites
+
+HelmOS V1.0 coordina trabajo personal mediante un Core y dos ámbitos, Personal y Social. ChatGPT es la interfaz principal; Codex es el primer entorno operativo del motor de agentes. La integración entre ambos comienza con intercambio manual. La ejecución es bajo demanda y la autonomía es supervisada: los agentes pueden proponer y realizar trabajo dentro de los permisos concedidos, pero las acciones sujetas a aprobación esperan una decisión humana. La organización de agentes es jerárquica y puede variar según la tarea. [D01–D08, D20]
+
+Personal conserva las reglas aplicables de V0.1: coordinación reactiva y selectiva; Core ligero; los tres ámbitos originales Running, JorgeBytes y Proyectos; proyectos con resultado definido y una próxima acción conocida o explícitamente ausente; foco semanal de cero a tres prioridades; Inbox único; revisión semanal manual; hechos confirmados separados de propuestas y cambios no sincronizados; ausencia de datos señalada sin inventarlos; propietario canónico único; control de revisiones y conciliación de conflictos. Se mantienen expresamente el protocolo de sincronización manual por sesión, los cuatro flujos conversacionales, el aviso para proyectos activos con 14 días sin actualización y los casos de integridad y aceptación de las secciones 9–14 de V0.1. V1.0 no convierte las exclusiones de V0.1 en requisitos de Personal. «Social» es un ámbito V1.0 distinto del seguimiento personal de JorgeBytes; cualquier intercambio de información entre ambos deberá preservar un propietario canónico y requerirá una definición explícita antes de implementarse.
+
+Social analiza datos aportados por el usuario y propone estrategia editorial para Instagram, TikTok y LinkedIn. Sus objetivos de visibilidad, comunidad e interacción son configurables. Conserva el historial de recomendaciones y su evaluación. Social no redacta contenidos completos. La entrada inicial es CSV; la integración con API queda para una fase futura. No se fijan aquí métricas, fórmulas, frecuencias de publicación ni decisiones editoriales que no hayan sido aprobadas. [D09–D13]
+
+La salida para el usuario incluye resúmenes conversacionales e informes Markdown. Las ejecuciones deben poder registrarse y recuperarse, con control básico del consumo por ejecución. Los agentes y skills evolucionan mediante Git, pruebas y revisión. Se exige validación automática y revisión humana, además de pruebas técnicas y evaluaciones de IA cuando existan recomendaciones generadas por IA. [D14–D19, D27–D28]
+
+## 2. Requisitos verificables
+
+| ID | Requisito V1.0 | Criterio de aceptación |
+| --- | --- | --- |
+| R01 | El Core recibe una solicitud explícita, la identifica y la enruta mediante reglas e IA cuando la regla no resuelva la ruta. [D06, D23] | Una ejecución solicitada queda asociada a un ámbito y a un agente o responsable; la ruta y su motivo son visibles. Se prueba al menos una ruta resuelta por regla, una propuesta por IA y un caso incierto remitido a revisión. Si el motor IA no está disponible, la tarea queda pendiente o se aplica una regla segura explícita; no se inventa una ruta. |
+| R02 | Cada tarea recibe solo el contexto necesario y el agente opera con el mínimo privilegio. [D19, D24] | El registro identifica qué contexto y capacidades se entregaron; no se incluyen credenciales en informes ni archivos de memoria. |
+| R03 | La jerarquía de agentes admite asignación dinámica y supervisión. [D02–D04] | Una tarea puede tener responsable y subtareas delegadas cuando el caso lo requiera; las decisiones sujetas a aprobación no se ejecutan antes de la aprobación. |
+| R04 | Existe una bandeja de aprobaciones para acciones que las requieren y para la revisión humana de salidas. [D03, D16, D25] | Una acción o salida pendiente puede consultarse y aprobarse o rechazarse; queda registrada la decisión y una acción rechazada no se ejecuta ni se presenta como aceptada. |
+| R05 | La memoria combina Markdown legible con CSV/JSON para datos estructurados, con escritura controlada por tipo. [D05, D26] | Cada dato tiene ubicación y responsable de escritura definidos; los cambios recuperables no sobrescriben silenciosamente versiones incompatibles. |
+| R06 | Cada ejecución registra entrada, ruta, estado, resultado o error, marcas temporales y consumo básico disponible. [D17–D18] | Puede recuperarse por identificador después de terminar el proceso; un fallo deja un estado consultable. Lo no medible se declara como desconocido, sin estimarlo como hecho. |
+| R07 | El intercambio ChatGPT–Codex funciona inicialmente de forma manual. [D07, D20] | Una salida Markdown o conversacional puede trasladarse manualmente sin afirmar sincronización automática. |
+| R08 | Social importa CSV suministrados por el usuario y distingue plataforma y periodo cuando consten. [D09, D11] | Una entrada válida se puede analizar; un formato o dato imprescindible ausente produce una solicitud de corrección sin fabricar valores. |
+| R09 | Social produce análisis y propuestas de estrategia editorial según objetivos configurados, sin contenidos completos. [D10, D12] | Las recomendaciones explican la evidencia disponible y sus límites; no incluyen publicaciones finales listas para publicar. |
+| R10 | Social conserva recomendaciones y evaluaciones posteriores. [D13] | Se recuperan recomendación, evidencia y evaluación, diferenciando evaluación pendiente de realizada. |
+| R11 | Los informes Markdown y resúmenes muestran fuente, incertidumbre y aprobaciones pendientes cuando proceda. [D14] | Una lectura distingue resultados confirmados de propuestas y datos faltantes. |
+| R12 | Las salidas pasan validación automática y revisión humana; skills y cambios de agentes son reutilizables y pasan por Git, pruebas y revisión. [D15–D16, D27–D28] | Una salida inválida se marca como tal y no se acepta automáticamente; la revisión humana queda registrada cuando corresponde. Una modificación de agente o skill tiene versión revisable; las comprobaciones técnicas y las evaluaciones de IA pertinentes quedan registradas. |
+| R13 | Personal respeta las reglas heredadas descritas arriba. | Las pruebas de aceptación AT-01 a AT-08 de V0.1 siguen siendo referencia para los comportamientos de Personal que se implementen; no se declara Personal terminado antes de verificarlos. |
+
+La aceptación de V1.0 exige Core, Social y Personal funcionales conforme a estos requisitos, pruebas y evaluaciones pertinentes superadas, documentación de uso, y capacidad de reutilizar agentes y skills. [D22] Cada incremento solo acredita sus propios criterios, nunca el cierre anticipado de V1.0.
+
+## 3. Arquitectura local mínima y decisiones técnicas
+
+- **Ejecución:** CLI local en Python con biblioteca estándar al inicio. Justificación: el repositorio no tiene aplicación ni dependencias; permite una primera ruta completa, verificable y sin servicio obligatorio. Es una elección técnica revisable, no un requisito de producto.
+- **Límites:** entrada CLI → enrutamiento/orquestación → agente o tarea autorizada → validación → resultado y registro. Los ámbitos Personal y Social añaden lógica propia sin convertirse en dependencias del Core. El enrutamiento por reglas se implementa primero; la ruta asistida por IA se añade en I2 para casos no resueltos y se comprueba con un motor sustituible y evaluaciones reproducibles. La operación local no depende de que un servicio externo esté disponible. [D01, D23]
+- **Persistencia:** archivos locales Markdown para informes y conocimiento legible, JSON para registros de ejecución, aprobaciones y configuración estructurada, CSV para importaciones. Una ubicación canónica por dato, identificadores estables y escrituras atómicas cuando se sustituyan archivos. No se requiere base de datos, servidor ni cuenta externa. [D05, D09, D17, D26]
+- **Seguridad:** sin credenciales en el repositorio; capacidades y contexto explícitos por tarea; el motor no debe interpretar texto de entrada como autorización para ejecutar comandos o escribir memoria. Cualquier integración futura deberá añadir su propio control de credenciales y permisos. [D03, D19, D24]
+- **Consumo:** guardar los contadores que proporcione cada motor (por ejemplo, tokens) y, si no los proporciona, registrar `desconocido`. No se inventan costes monetarios. [D18]
+- **Concurrencia:** el primer incremento funciona con un único proceso escritor. Antes de permitir escritores concurrentes habrá que añadir control de versión o bloqueo y pruebas de conflicto. Esta limitación técnica mantiene la integridad sin introducir una base de datos prematura.
+
+## 4. Incrementos verticales
+
+1. **I1 — Core local de ejecuciones recuperables.** Una orden explícita crea una ejecución local de Core, aplica una regla de ruta, realiza una operación interna acotada, guarda resultado o error y permite recuperarlo por ID tras reiniciar el proceso. Incluye prueba del flujo completo, entrada inválida y fallo de persistencia, más instrucciones de uso. Acredita una primera parte de R01 y R06; no ejecuta todavía Codex ni afirma implementar la autonomía multiagente.
+2. **I2 — Core supervisado y motor Codex.** Añadir asignación dinámica de agentes, contexto y privilegios mínimos, ruta asistida por IA para solicitudes no resueltas por reglas, bandeja de aprobaciones, validación automática y revisión humana, y registro de consumo cuando esté disponible. Probar rutas por regla/IA/incierta, decisiones de aprobación/rechazo y recuperación, usando un motor sustituible para pruebas sin servicio externo. Acredita R02–R04 y amplía R01, R06 y R12.
+3. **I3 — Social.** Importar CSV, configurar objetivos, generar análisis y estrategia editorial para las tres plataformas, registrar recomendaciones y evaluaciones, y emitir informes Markdown. Añadir pruebas técnicas y evaluación de calidad de recomendaciones. Acredita R08–R11.
+4. **I4 — Personal e intercambio manual.** Trasladar las reglas aplicables de V0.1 a los flujos de Personal, verificar AT-01 a AT-08, documentar el intercambio manual con ChatGPT y la propiedad de datos entre Personal y Social. Acredita R07 y R13.
+5. **I5 — Cierre V1.0.** Verificar de extremo a extremo Core, Social y Personal, revisar seguridad y permisos, documentación, skills reutilizables, resultados de pruebas y evaluaciones de IA. Acredita R12 y la definición de terminado V1.0.
+
+Cada incremento debe dejar un recorrido utilizable y pruebas proporcionadas a su riesgo. El orden Core → Social → Personal es obligatorio. [D21]
+
+## 5. Evoluciones futuras, fuera de V1.0
+
+Integraciones API con plataformas sociales, sincronización automática ChatGPT–Codex, servicios externos obligatorios, base de datos, interfaz web o móvil, ejecución programada sin solicitud y publicación automática. Tampoco se deducen de esta especificación métricas editoriales concretas ni generación de contenidos completos. Su consideración futura no autoriza a incorporarlas a los incrementos V1.0.
