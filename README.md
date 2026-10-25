@@ -15,6 +15,19 @@ La primera orden comprueba la presencia local de la especificación V1.0 y los p
 
 Solo `core.status` está disponible en I1. No se ejecutan agentes, ámbitos Social o Personal, integraciones ni acciones externas. No introduzcas secretos en las órdenes o en el directorio de estado. El estado local tiene un único escritor; la concurrencia se abordará antes de habilitar ejecuciones paralelas.
 
+## Muestra acotada de I2
+
+La skill reutilizable [analyze-social-sample](.agents/skills/analyze-social-sample/SKILL.md) indica cómo interpretar con cautela una muestra. `examples/social_sample.csv` contiene **datos ficticios**. Para ejecutar su cálculo local:
+
+```powershell
+python -m helmos run social.sample --csv examples/social_sample.csv
+python -m helmos show <id-de-la-ejecucion>
+```
+
+El CSV acepta de 1 a 20 publicaciones, con columnas `post_id,platform,impressions,likes,comments,shares`; las plataformas admitidas son Instagram, TikTok y LinkedIn. Los recuentos deben ser enteros no negativos y los IDs únicos. El Core conserva las filas, suma los recuentos y calcula `interactions = likes + comments + shares` para esta muestra. El registro incluye la ruta, la skill identificada, los datos, los cálculos y advertencias. Un CSV inválido produce un registro recuperable con estado `failed`. Esta suma no define un KPI aprobado para HelmOS Social. El Core Python no invoca subagentes; la interpretación y revisión delegadas se hacen desde Codex por separado.
+
+La [evidencia de la demostración con subagentes](docs/I2_DELEGATION.md) identifica el registro del Core, los perfiles efectivamente usados en Codex y los límites de este avance.
+
 Para verificar el incremento:
 
 ```powershell

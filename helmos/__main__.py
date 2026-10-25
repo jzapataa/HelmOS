@@ -19,15 +19,16 @@ def main(argv: list[str] | None = None) -> int:
         help="Local directory for execution records (default: ./var)",
     )
     commands = parser.add_subparsers(dest="command", required=True)
-    run = commands.add_parser("run", help="Execute a supported Core operation")
-    run.add_argument("operation", help="Currently supported: core.status")
+    run = commands.add_parser("run", help="Execute a supported local operation")
+    run.add_argument("operation", help="Supported: core.status, social.sample")
+    run.add_argument("--csv", type=Path, help="CSV input for social.sample")
     show = commands.add_parser("show", help="Recover an execution by ID")
     show.add_argument("identifier")
     args = parser.parse_args(argv)
 
     try:
         if args.command == "run":
-            record = execute(args.operation, args.state_dir)
+            record = execute(args.operation, args.state_dir, args.csv)
         else:
             record = read_execution(args.identifier, args.state_dir)
     except (ValueError, OSError, json.JSONDecodeError) as error:

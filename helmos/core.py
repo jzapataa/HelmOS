@@ -9,9 +9,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from .social_sample import SampleValidationError, analyze_csv
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 SUPPORTED_OPERATION = "core.status"
+SAMPLE_OPERATION = "social.sample"
 
 
 def utc_now() -> str:
@@ -19,13 +22,19 @@ def utc_now() -> str:
 
 
 def route(operation: str) -> dict[str, str]:
-    if operation != SUPPORTED_OPERATION:
-        raise ValueError(f"Unsupported operation: {operation}")
-    return {
-        "domain": "core",
-        "handler": "local_status",
-        "reason": "Explicit rule for core.status",
-    }
+    if operation == SUPPORTED_OPERATION:
+        return {
+            "domain": "core",
+            "handler": "local_status",
+            "reason": "Explicit rule for core.status",
+        }
+    if operation == SAMPLE_OPERATION:
+        return {
+            "domain": "social_sample",
+            "handler": "analyze_csv",
+            "reason": "Explicit rule for the bounded social sample analysis",
+        }
+    raise ValueError(f"Unsupported operation: {operation}")
 
 
 def local_status() -> dict[str, object]:
@@ -59,14 +68,27 @@ def _write_atomic(path: Path, record: dict[str, object]) -> None:
         temporary_path.unlink(missing_ok=True)
 
 
-def execute(operation: str, state_dir: Path) -> dict[str, object]:
+def execute(operation: str, state_dir: Path, csv_path: Path | None = None) -> dict[str, object]:
     selected_route = route(operation)
+    if operation == SAMPLE_OPERATION and csv_path is None:
+        raise ValueError("social.sample requires --csv PATH")
+    if operation == SUPPORTED_OPERATION and csv_path is not None:
+        raise ValueError("core.status does not accept --csv")
+    request: dict[str, str] = {"operation": operation}
+    if csv_path is not None:
+        request["csv_path"] = str(csv_path)
     record: dict[str, object] = {
         "id": str(uuid4()),
-        "input": {"operation": operation},
+        "input": request,
         "route": selected_route,
-        "context": ["presence of local specification and agent profiles"],
-        "capabilities": ["read local file metadata", "write execution record"],
+        "context": (
+            ["presence of local specification and agent profiles"]
+            if operation == SUPPORTED_OPERATION else ["user-selected CSV"]
+        ),
+        "capabilities": (
+            ["read local file metadata", "write execution record"]
+            if operation == SUPPORTED_OPERATION else ["read selected CSV", "write execution record"]
+        ),
         "status": "running",
         "started_at": utc_now(),
         "finished_at": None,
@@ -75,11 +97,16 @@ def execute(operation: str, state_dir: Path) -> dict[str, object]:
         "consumption": {"tokens": None, "cost": None, "measurement": "unknown"},
     }
     try:
-        record["result"] = local_status()
+        record["result"] = (
+            local_status() if operation == SUPPORTED_OPERATION else analyze_csv(csv_path)
+        )
         record["status"] = "succeeded"
-    except OSError as error:
+    except (OSError, SampleValidationError) as error:
         record["status"] = "failed"
-        record["error"] = f"Local status check failed: {error}"
+        record["error"] = (
+            f"Local status check failed: {error}"
+            if operation == SUPPORTED_OPERATION else f"Social sample analysis failed: {error}"
+        )
     record["finished_at"] = utc_now()
     _write_atomic(state_dir / "runs" / f"{record['id']}.json", record)
     return record
