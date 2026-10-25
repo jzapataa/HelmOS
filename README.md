@@ -48,3 +48,19 @@ Para verificar el incremento:
 ```powershell
 python -m unittest discover -s tests -v
 ```
+
+## Incremento I2-C: rutas y aprobaciones locales
+
+El Core usa un registro cerrado de rutas: `core.status`, `social.sample` y `core.agent`. Una ruta desconocida se rechaza antes de llamar a un ejecutor o crear un registro. La bandeja de aprobaciones guarda un JSON por propuesta en `var/approvals/` (o bajo `--state-dir RUTA`). Para crear y resolver una propuesta vinculada a una ejecución existente:
+
+```powershell
+python -m helmos run core.status
+python -m helmos approvals create --run-id <id-de-la-ejecucion> --action review_output --description "Revisar la salida de estado" --scope "Core local"
+python -m helmos approvals list
+python -m helmos approvals show <id-de-la-propuesta>
+python -m helmos approvals approve <id-de-la-propuesta>
+# Como alternativa a approve, para otra propuesta pendiente:
+python -m helmos approvals reject <id-de-la-propuesta>
+```
+
+Las acciones permitidas son `review_output` (revisión humana de una salida) y `manual_follow_up` (propuesta de trabajo posterior para una persona). La descripción y el alcance son metadatos; no conceden capacidades ni se interpretan como comandos. Crear una propuesta requiere una ejecución recuperable. Cada propuesta registra su origen, estado `pending`, `approved` o `rejected`, fechas e historial de transiciones. Aprobar o rechazar solo actualiza el JSON: no ejecuta la propuesta, modifica la ejecución original ni contacta servicios externos. Una propuesta resuelta no puede decidirse de nuevo. El almacenamiento local sigue admitiendo un único escritor.

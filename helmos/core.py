@@ -17,6 +17,20 @@ REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 SUPPORTED_OPERATION = "core.status"
 SAMPLE_OPERATION = "social.sample"
 AGENT_OPERATION = "core.agent"
+ROUTES = {
+    SUPPORTED_OPERATION: {
+        "domain": "core", "handler": "local_status",
+        "reason": "Explicit rule for core.status",
+    },
+    SAMPLE_OPERATION: {
+        "domain": "social_sample", "handler": "analyze_csv",
+        "reason": "Explicit rule for the bounded social sample analysis",
+    },
+    AGENT_OPERATION: {
+        "domain": "core", "handler": "codex_exec",
+        "reason": "Explicit rule for one read-only Codex task",
+    },
+}
 
 
 def utc_now() -> str:
@@ -24,25 +38,10 @@ def utc_now() -> str:
 
 
 def route(operation: str) -> dict[str, str]:
-    if operation == SUPPORTED_OPERATION:
-        return {
-            "domain": "core",
-            "handler": "local_status",
-            "reason": "Explicit rule for core.status",
-        }
-    if operation == SAMPLE_OPERATION:
-        return {
-            "domain": "social_sample",
-            "handler": "analyze_csv",
-            "reason": "Explicit rule for the bounded social sample analysis",
-        }
-    if operation == AGENT_OPERATION:
-        return {
-            "domain": "core",
-            "handler": "codex_exec",
-            "reason": "Explicit rule for one read-only Codex task",
-        }
-    raise ValueError(f"Unsupported operation: {operation}")
+    try:
+        return ROUTES[operation].copy()
+    except (KeyError, TypeError) as error:
+        raise ValueError(f"Unsupported operation: {operation}") from error
 
 
 def local_status() -> dict[str, object]:
@@ -58,7 +57,11 @@ def local_status() -> dict[str, object]:
 
 
 def _write_atomic(path: Path, record: dict[str, object]) -> None:
+    if path.parent.is_symlink():
+        raise ValueError("Execution directory cannot be a symbolic link")
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.parent.is_symlink() or path.is_symlink():
+        raise ValueError("Execution path cannot be a symbolic link")
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=".run-", suffix=".tmp", dir=path.parent
     )
@@ -133,11 +136,13 @@ def execute(
             record["result"] = local_status()
         elif operation == SAMPLE_OPERATION:
             record["result"] = analyze_csv(csv_path)
-        else:
+        elif operation == AGENT_OPERATION:
             outcome = run_agent(task, state_dir, context_name, context_text)
             record["result"] = outcome["result"]
             record["consumption"] = outcome["consumption"]
             record["agent"]["thread_id"] = outcome["thread_id"]
+        else:
+            raise ValueError(f"Unsupported operation: {operation}")
         if operation == AGENT_OPERATION and record["result"]["outcome"] == "blocked":
             record["status"] = "failed"
             record["error"] = "Agent reported that it could not complete the task"
@@ -162,6 +167,8 @@ def read_execution(identifier: str, state_dir: Path) -> dict[str, object]:
     except ValueError as error:
         raise ValueError("Invalid execution ID") from error
     path = state_dir / "runs" / f"{normalized}.json"
+    if path.parent.is_symlink() or path.is_symlink():
+        raise ValueError("Execution path cannot be a symbolic link")
     with path.open("r", encoding="utf-8") as stream:
         record = json.load(stream)
     if not _valid_record(record, normalized):
