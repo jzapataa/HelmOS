@@ -10,7 +10,8 @@ from datetime import date
 from pathlib import Path
 
 from .agent import AgentExecutionError, MAX_CONTEXT_BYTES, run_structured
-from .social_import import COMMON_METRICS, SPECIFIC_METRICS, SocialImportError, list_posts, summarize
+from .social_import import COMMON_METRICS, SPECIFIC_METRICS, SocialImportError, list_posts
+from .social_history import latest_groups, observations, summarize_history
 
 
 SKILL_PATH = Path(__file__).resolve().parent.parent / ".agents" / "skills" / "analyze-social-editorial" / "SKILL.md"
@@ -85,30 +86,78 @@ def prepare_dataset(state_dir: Path, platform: str | None = None,
         raise SocialAnalysisError("No imported publications match the selected filters; import CSV data first")
     if len(posts) > MAX_POSTS:
         raise SocialAnalysisError(f"Selection exceeds {MAX_POSTS} publications; narrow the filters")
-    references = [
-        {"ref": f"P{index:03d}", "platform": post["platform"], "post_id": post["post_id"],
-         "published_at": post["published_at"], "format": post["format"],
-         "topic": post["topic"], "metrics": post["metrics"]}
-        for index, post in enumerate(posts, 1)
-    ]
-    totals = summarize(posts)
+    totals = summarize_history(state_dir, posts)
+    references = []
+    for index, post in enumerate(posts, 1):
+        groups = latest_groups(observations(state_dir, post))
+        basis = totals[post["platform"]]["metric_basis"]
+        primary = next((group for group in groups if group["measurement_type"] == basis
+                        and group["capture_status"] == totals[post["platform"]]["capture_status"]
+                        and group["period_start"] == totals[post["platform"]]["period_start"]
+                        and group["period_end"] == totals[post["platform"]]["period_end"]), None)
+        references.append({
+            "ref": f"P{index:03d}", "platform": post["platform"], "post_id": post["post_id"],
+            "published_at": post["published_at"], "format": post["format"],
+            "topic": post["topic"], "metrics": {
+                name: datum["value"] for name, datum in primary["metrics"].items()
+            } if primary else {}, "measurements": groups,
+        })
     coverage = {}
+    temporal_limitations = []
     for name, group in totals.items():
+        basis = group["metric_basis"]
+        if basis == "unspecified":
+            temporal_limitations.append(
+                f"{name}: las métricas agregadas tienen un período de medición desconocido; no son totales actuales.")
+        if any(item["measurement_type"] == "period" for item in group["measurement_groups"]
+               if item["measurement_type"] != basis or item["period_start"] != group["period_start"]
+               or item["period_end"] != group["period_end"]):
+            temporal_limitations.append(
+                f"{name}: las mediciones por período se muestran aparte y se excluyen de la evidencia agregada.")
+        if any(metric["undated_posts"] for item in group["measurement_groups"]
+               for metric in item["metrics"].values()):
+            temporal_limitations.append(f"{name}: algunas fechas de captura son desconocidas.")
         coverage[name] = {
-            "post_count": group["post_count"],
+            "post_count": group["post_count"], "metric_basis": basis,
+            "capture_status": group["capture_status"],
+            "period_start": group["period_start"], "period_end": group["period_end"],
+            "measurement_groups": group["measurement_groups"],
             "metrics": {
                 metric: {
                     "sum": group["metrics"][metric]["sum"],
                     "observed_posts": group["metrics"][metric]["observed_posts"],
                     "missing_posts": group["post_count"] - group["metrics"][metric]["observed_posts"],
+                    "oldest_capture": next((item["metrics"][metric]["oldest_capture"]
+                                             for item in group["measurement_groups"]
+                                             if item["measurement_type"] == basis
+                                             and item["capture_status"] == group["capture_status"]
+                                             and item["period_start"] == group["period_start"]
+                                             and item["period_end"] == group["period_end"]
+                                             and metric in item["metrics"]), None),
+                    "newest_capture": next((item["metrics"][metric]["newest_capture"]
+                                             for item in group["measurement_groups"]
+                                             if item["measurement_type"] == basis
+                                             and item["capture_status"] == group["capture_status"]
+                                             and item["period_start"] == group["period_start"]
+                                             and item["period_end"] == group["period_end"]
+                                             and metric in item["metrics"]), None),
+                    "undated_posts": next((item["metrics"][metric]["undated_posts"]
+                                            for item in group["measurement_groups"]
+                                            if item["measurement_type"] == basis
+                                            and item["capture_status"] == group["capture_status"]
+                                            and item["period_start"] == group["period_start"]
+                                            and item["period_end"] == group["period_end"]
+                                            and metric in item["metrics"]), 0),
                 } if metric in group["metrics"] else {
                     "sum": None, "observed_posts": 0, "missing_posts": group["post_count"],
+                    "oldest_capture": None, "newest_capture": None, "undated_posts": 0,
                 }
                 for metric in COMMON_METRICS + SPECIFIC_METRICS[name]
             },
         }
     dataset = {"filters": {"platform": platform, "from": start, "to": end},
-               "post_count": len(posts), "posts": references, "coverage": coverage}
+               "post_count": len(posts), "posts": references, "coverage": coverage,
+               "temporal_limitations": temporal_limitations}
     if len(json.dumps(dataset, ensure_ascii=False).encode("utf-8")) > MAX_CONTEXT_BYTES - 4000:
         raise SocialAnalysisError("Selected publications exceed the bounded AI context; narrow the filters")
     return dataset
@@ -169,16 +218,31 @@ def render_report(run_id: str, dataset: dict[str, object], editorial: dict[str, 
              "## Datos y cobertura", "", f"Publicaciones seleccionadas: {dataset['post_count']}.", ""]
     for platform, group in dataset["coverage"].items():
         lines += [f"### {_safe(platform)}", "", f"Publicaciones: {group['post_count']}.", "",
-                  "| Métrica | Suma observada | Con datos | Sin datos |", "| --- | ---: | ---: | ---: |"]
+                  f"Base del agregado: {_safe(group['metric_basis'] or 'sin métricas comparables')} "
+                  f"({_safe(group['capture_status'] or 'sin fecha')}).", "",
+                  "| Métrica | Suma observada | Con datos | Sin datos | Captura más antigua | Captura más reciente | Sin fecha |",
+                  "| --- | ---: | ---: | ---: | --- | --- | ---: |"]
         for metric, data in group["metrics"].items():
             amount = "ausente" if data["sum"] is None else str(data["sum"])
-            lines.append(f"| {_safe(metric)} | {amount} | {data['observed_posts']} | {data['missing_posts']} |")
+            lines.append(f"| {_safe(metric)} | {amount} | {data['observed_posts']} | {data['missing_posts']} "
+                         f"| {data['oldest_capture'] or 'desconocida'} | {data['newest_capture'] or 'desconocida'} "
+                         f"| {data['undated_posts']} |")
         lines.append("")
+        if group["metric_basis"] == "period":
+            lines.append(f"Ventana del agregado: {group['period_start']} a {group['period_end']}.")
+            lines.append("")
     lines += ["## Publicaciones utilizadas", ""]
     for post in dataset["posts"]:
         metrics = ", ".join(f"{_safe(name)}={value}" for name, value in post["metrics"].items()) or "sin métricas"
         lines.append(f"- `{post['ref']}`: {_safe(post['platform'])}/{_safe(post['post_id'])}, "
                      f"{post['published_at']}, {_safe(post['format'])}, {_safe(post['topic'])}; {metrics}.")
+        for group in post["measurements"]:
+            details = ", ".join(f"{_safe(name)}={datum['value']} (captura {datum['observed_at'] or 'desconocida'})"
+                                for name, datum in group["metrics"].items()) or "sin métricas"
+            period = (f", ventana {group['period_start']} a {group['period_end']}"
+                      if group["measurement_type"] == "period" else "")
+            lines.append(f"  - Medición {_safe(group['measurement_type'])} "
+                         f"({_safe(group['capture_status'])}){period}: {details}.")
     lines += ["", "## Hallazgos", ""]
     for item in editorial["findings"]:
         evidence = "; ".join(f"{_safe(e['platform'])} {_safe(e['metric'])}: "
@@ -190,6 +254,7 @@ def render_report(run_id: str, dataset: dict[str, object], editorial: dict[str, 
     lines += ["", "## Limitaciones", "", "- Muestra pequeña: las observaciones no demuestran tendencias sólidas ni causalidad.",
               "- Las métricas entre plataformas pueden tener definiciones y ventanas distintas; no se comparan directamente.",
               "- Las celdas ausentes permanecen ausentes; las sumas cubren solo publicaciones con dato."]
+    lines += [f"- {_safe(item)}" for item in dataset["temporal_limitations"]]
     lines += [f"- {_safe(item)}" for item in editorial["limitations"]]
     lines += ["", "## Acciones propuestas", ""]
     for item in editorial["recommendations"]:
@@ -214,6 +279,8 @@ def analyze(state_dir: Path, run_id: str, platform: str | None = None,
         "Use publication refs and metric evidence exactly as supplied. Do not put digits "
         "in prose fields; numeric facts belong only in metric_evidence. Distinguish "
         "observations from hypotheses; no causal or cross-platform metric claims. "
+        "Aggregate evidence uses only the stated metric_basis and latest known value per post and metric. "
+        "Do not call undated values current or combine period, cumulative and unspecified measurements. "
         "Keep the calendar an orientative proposal, not approved work.\n\n"
         f"Editorial skill:\n{skill}\n\nDataset JSON:\n{json.dumps(dataset, ensure_ascii=False)}"
     )

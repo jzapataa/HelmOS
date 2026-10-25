@@ -9,7 +9,8 @@ from pathlib import Path
 
 from .approvals import ALLOWED_ACTIONS, create_proposal, decide_proposal, list_proposals, read_proposal
 from .core import REPOSITORY_ROOT, execute, read_execution
-from .social_import import list_posts, summarize
+from .social_import import list_posts
+from .social_history import evolution, latest, observations, publication, summarize_history
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -36,6 +37,10 @@ def main(argv: list[str] | None = None) -> int:
     for name in ("posts", "summary"):
         command = social_commands.add_parser(name)
         command.add_argument("--platform", choices=("Instagram", "TikTok", "LinkedIn"))
+    for name in ("observations", "latest", "evolution"):
+        command = social_commands.add_parser(name)
+        command.add_argument("--platform", required=True, choices=("Instagram", "TikTok", "LinkedIn"))
+        command.add_argument("--post-id", required=True)
     approvals = commands.add_parser("approvals", help="Manage local approval proposals")
     approval_commands = approvals.add_subparsers(dest="approval_command", required=True)
     create = approval_commands.add_parser("create", help="Create a proposal from a saved execution")
@@ -56,8 +61,19 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "show":
             record = read_execution(args.identifier, args.state_dir)
         elif args.command == "social":
-            posts = list_posts(args.state_dir, args.platform)
-            record = posts if args.social_command == "posts" else summarize(posts)
+            if args.social_command == "posts":
+                record = list_posts(args.state_dir, args.platform)
+            elif args.social_command == "summary":
+                record = summarize_history(args.state_dir, list_posts(args.state_dir, args.platform))
+            else:
+                post = publication(args.state_dir, args.platform, args.post_id)
+                if args.social_command == "observations":
+                    record = {"platform": post["platform"], "post_id": post["post_id"],
+                              "observations": observations(args.state_dir, post)}
+                elif args.social_command == "latest":
+                    record = latest(args.state_dir, post)
+                else:
+                    record = evolution(args.state_dir, post)
         elif args.approval_command == "create":
             record = create_proposal(
                 args.run_id, args.action, args.description, args.scope, args.state_dir,
