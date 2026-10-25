@@ -1,0 +1,3 @@
+platform,post_id,published_at,format,topic,observed_at,measurement_type,period_start,period_end,views,likes,comments
+TikTok,FICTIONAL_TT_HISTORY,2026-01-01,video,Ejemplo ficticio,2026-01-03,cumulative,,,100,10,
+TikTok,FICTIONAL_TT_WINDOW,2026-01-01,video,Ejemplo ficticio,2026-01-10,period,2026-01-02,2026-01-09,40,,2

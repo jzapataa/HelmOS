@@ -119,6 +119,60 @@ class SocialImportTests(unittest.TestCase):
         self.assertIn("requires --csv", completed.stderr)
         self.assertFalse((self.state / "runs").exists())
 
+    def test_dated_observations_are_idempotent_and_persist_between_processes(self) -> None:
+        from helmos.social_import import list_observations, list_posts
+
+        header = f"{REQUIRED},observed_at,measurement_type,period_start,period_end,likes,comments\n"
+        first = header + "TikTok,post,2026-01-01,video,fictional,2026-01-03,cumulative,,,10,\n"
+        second = header + "TikTok,post,2026-01-01,video,fictional,2026-01-05,cumulative,,,14,2\n"
+        self.assertEqual(self.import_text(first)["result"]["imported"], 1)
+        self.assertEqual(self.import_text(second)["result"]["observations_added"], 1)
+        self.assertEqual(self.import_text(second)["result"]["already_present"], 1)
+        post = list_posts(self.state)[0]
+        observations = list_observations(self.state, post)
+        self.assertEqual([item["metrics"] for item in observations],
+                         [{"likes": 10}, {"likes": 14, "comments": 2}])
+        self.assertEqual(len(list((self.state / "social" / "observations").rglob("*.json"))), 1)
+        self.assertEqual(len(json.loads(self.cli("social", "posts").stdout)), 1)
+
+    def test_legacy_record_is_preserved_when_new_observation_arrives(self) -> None:
+        from helmos.social_import import list_observations, list_posts
+
+        old = f"{REQUIRED},likes\nLinkedIn,post,2026-01-01,text,fictional,5\n"
+        self.assertEqual(self.import_text(old)["status"], "succeeded")
+        post_path = next((self.state / "social" / "posts").glob("*.json"))
+        legacy = json.loads(post_path.read_text(encoding="utf-8"))
+        legacy.pop("initial_observation")
+        post_path.write_text(json.dumps(legacy), encoding="utf-8")
+        original_bytes = post_path.read_bytes()
+        new = (f"{REQUIRED},observed_at,measurement_type,likes\n"
+               "LinkedIn,post,2026-01-01,text,fictional,2026-01-10,cumulative,8\n")
+        self.assertEqual(self.import_text(new)["result"]["observations_added"], 1)
+        self.assertEqual(post_path.read_bytes(), original_bytes)
+        observations = list_observations(self.state, list_posts(self.state)[0])
+        self.assertIsNone(observations[0]["observed_at"])
+        self.assertEqual(observations[0]["measurement_type"], "unspecified")
+        self.assertIsNone(observations[0]["source_csv"])
+        self.assertEqual(observations[1]["metrics"], {"likes": 8})
+
+    def test_conflicting_date_period_and_metadata_leave_saved_data_intact(self) -> None:
+        header = f"{REQUIRED},observed_at,measurement_type,period_start,period_end,views\n"
+        first = header + "TikTok,post,2026-01-01,video,fictional,2026-01-10,period,2026-01-02,2026-01-09,20\n"
+        self.assertEqual(self.import_text(first)["status"], "succeeded")
+        post_path = next((self.state / "social" / "posts").glob("*.json"))
+        original_bytes = post_path.read_bytes()
+        conflicts = (
+            header + "TikTok,post,2026-01-01,video,fictional,2026-01-10,period,2026-01-03,2026-01-09,20\n",
+            header + "TikTok,post,2026-01-01,video,fictional,2026-01-10,cumulative,,,20\n",
+            header + "TikTok,post,2026-01-01,video,changed,2026-01-12,period,2026-01-10,2026-01-11,3\n",
+            header + "TikTok,post,2026-01-01,video,fictional,2026-01-12,period,2026-01-13,2026-01-14,3\n",
+        )
+        for content in conflicts:
+            with self.subTest(content=content):
+                self.assertEqual(self.import_text(content)["status"], "failed")
+                self.assertEqual(post_path.read_bytes(), original_bytes)
+                self.assertFalse((self.state / "social" / "observations").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
