@@ -26,7 +26,22 @@ python -m helmos show <id-de-la-ejecucion>
 
 El CSV acepta de 1 a 20 publicaciones, con columnas `post_id,platform,impressions,likes,comments,shares`; las plataformas admitidas son Instagram, TikTok y LinkedIn. Los recuentos deben ser enteros no negativos y los IDs únicos. El Core conserva las filas, suma los recuentos y calcula `interactions = likes + comments + shares` para esta muestra. El registro incluye la ruta, la skill identificada, los datos, los cálculos y advertencias. Un CSV inválido produce un registro recuperable con estado `failed`. Esta suma no define un KPI aprobado para HelmOS Social. El Core Python no invoca subagentes; la interpretación y revisión delegadas se hacen desde Codex por separado.
 
-La [evidencia de la demostración con subagentes](docs/I2_DELEGATION.md) identifica el registro del Core, los perfiles efectivamente usados en Codex y los límites de este avance.
+La [evidencia de la demostración con subagentes](docs/I2_DELEGATION.md) identifica el registro del Core, los perfiles efectivamente usados en Codex y los límites de aquel avance.
+
+## Incremento I2-B: agente Codex local
+
+Requiere Codex CLI instalado y autenticado. Para una tarea de lectura del repositorio:
+
+```powershell
+python -m helmos run core.agent --task "Resume qué hace core.status." --context README.md
+python -m helmos show <id-de-la-ejecucion>
+```
+
+`core.agent` inicia **una ejecución nueva de `codex exec`**, pasa la tarea y el texto del documento por stdin y solicita una respuesta JSON con `outcome`, `summary`, `evidence` y `limitations`. `--context` admite `README.md` o un archivo Markdown dentro de `docs/`, hasta 32 KiB; rechaza enlaces simbólicos y rutas fuera del repositorio. Si el agente declara `blocked`, HelmOS registra `failed` con el resultado y error recuperables. El registro incluye el motor `codex exec`, el modelo solicitado, el ID de hilo si Codex lo comunica y tokens si el evento de uso los proporciona. Los resultados quedan pendientes de revisión humana.
+
+La ejecución solicita `gpt-6-sol` con esfuerzo `medium`, usa sandbox `read-only` y política de aprobación `never` para fallar cerrada en modo no interactivo. Desactiva herramientas de shell, multiagente, apps, plugins, navegación, búsqueda web, uso del equipo y hooks para esta invocación. No carga la configuración global de usuario ni la modifica; conserva las reglas de ejecución. El registro identifica el modelo solicitado, sin afirmar que los eventos hayan confirmado el modelo efectivo. En esta instalación Windows npm se invoca directamente el binario nativo que usa el lanzador oficial, para que el timeout termine el proceso Codex. La tarea tiene un máximo de 1000 caracteres, un proceso y 120 segundos; las salidas JSON tienen límites de tamaño. No introduzcas secretos en la tarea o documento. La ruta de estado local sigue teniendo un único escritor.
+
+Este agente de CLI no es un subagente interno de una sesión de Codex. Los perfiles `.codex/agents/developer.toml`, `qa.toml` y `reviewer.toml` no se seleccionan ni cargan con esta interfaz; el registro deja `profile: null`. La tarea de ejemplo usa el documento aportado por el Core; no demuestra acceso del agente al sistema de archivos mediante sus herramientas. I2-B no implementa aún la asignación dinámica de perfiles, la ruta asistida por IA ni la bandeja de aprobaciones del I2 completo.
 
 Para verificar el incremento:
 

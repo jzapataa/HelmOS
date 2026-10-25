@@ -9,12 +9,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from .agent import AgentExecutionError, MODEL, REASONING_EFFORT, load_context, run_agent, validate_task
 from .social_sample import SampleValidationError, analyze_csv
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 SUPPORTED_OPERATION = "core.status"
 SAMPLE_OPERATION = "social.sample"
+AGENT_OPERATION = "core.agent"
 
 
 def utc_now() -> str:
@@ -33,6 +35,12 @@ def route(operation: str) -> dict[str, str]:
             "domain": "social_sample",
             "handler": "analyze_csv",
             "reason": "Explicit rule for the bounded social sample analysis",
+        }
+    if operation == AGENT_OPERATION:
+        return {
+            "domain": "core",
+            "handler": "codex_exec",
+            "reason": "Explicit rule for one read-only Codex task",
         }
     raise ValueError(f"Unsupported operation: {operation}")
 
@@ -68,26 +76,50 @@ def _write_atomic(path: Path, record: dict[str, object]) -> None:
         temporary_path.unlink(missing_ok=True)
 
 
-def execute(operation: str, state_dir: Path, csv_path: Path | None = None) -> dict[str, object]:
+def execute(
+    operation: str, state_dir: Path, csv_path: Path | None = None,
+    task: str | None = None, context_path: Path | None = None,
+) -> dict[str, object]:
     selected_route = route(operation)
     if operation == SAMPLE_OPERATION and csv_path is None:
         raise ValueError("social.sample requires --csv PATH")
-    if operation == SUPPORTED_OPERATION and csv_path is not None:
-        raise ValueError("core.status does not accept --csv")
+    if operation != SAMPLE_OPERATION and csv_path is not None:
+        raise ValueError(f"{operation} does not accept --csv")
+    if operation == AGENT_OPERATION:
+        task = validate_task(task)
+        context_name, context_text = load_context(context_path)
+    elif task is not None:
+        raise ValueError(f"{operation} does not accept --task")
+    elif context_path is not None:
+        raise ValueError(f"{operation} does not accept --context")
     request: dict[str, str] = {"operation": operation}
     if csv_path is not None:
         request["csv_path"] = str(csv_path)
+    if task is not None:
+        request["task"] = task
+        request["context_path"] = context_name
     record: dict[str, object] = {
         "id": str(uuid4()),
         "input": request,
         "route": selected_route,
         "context": (
             ["presence of local specification and agent profiles"]
-            if operation == SUPPORTED_OPERATION else ["user-selected CSV"]
+            if operation == SUPPORTED_OPERATION else
+            ["user-selected CSV"] if operation == SAMPLE_OPERATION else
+            ["user task", f"supplied Markdown: {context_name}"]
         ),
         "capabilities": (
             ["read local file metadata", "write execution record"]
-            if operation == SUPPORTED_OPERATION else ["read selected CSV", "write execution record"]
+            if operation == SUPPORTED_OPERATION else
+            ["read selected CSV", "write execution record"] if operation == SAMPLE_OPERATION else
+            ["Codex read-only sandbox", "write execution record"]
+        ),
+        "agent": (
+            {
+                "engine": "codex exec", "profile": None, "thread_id": None,
+                "model_requested": MODEL, "reasoning_effort_requested": REASONING_EFFORT,
+            }
+            if operation == AGENT_OPERATION else None
         ),
         "status": "running",
         "started_at": utc_now(),
@@ -97,15 +129,27 @@ def execute(operation: str, state_dir: Path, csv_path: Path | None = None) -> di
         "consumption": {"tokens": None, "cost": None, "measurement": "unknown"},
     }
     try:
-        record["result"] = (
-            local_status() if operation == SUPPORTED_OPERATION else analyze_csv(csv_path)
-        )
-        record["status"] = "succeeded"
-    except (OSError, SampleValidationError) as error:
+        if operation == SUPPORTED_OPERATION:
+            record["result"] = local_status()
+        elif operation == SAMPLE_OPERATION:
+            record["result"] = analyze_csv(csv_path)
+        else:
+            outcome = run_agent(task, state_dir, context_name, context_text)
+            record["result"] = outcome["result"]
+            record["consumption"] = outcome["consumption"]
+            record["agent"]["thread_id"] = outcome["thread_id"]
+        if operation == AGENT_OPERATION and record["result"]["outcome"] == "blocked":
+            record["status"] = "failed"
+            record["error"] = "Agent reported that it could not complete the task"
+        else:
+            record["status"] = "succeeded"
+    except (OSError, SampleValidationError, AgentExecutionError) as error:
         record["status"] = "failed"
         record["error"] = (
             f"Local status check failed: {error}"
-            if operation == SUPPORTED_OPERATION else f"Social sample analysis failed: {error}"
+            if operation == SUPPORTED_OPERATION else
+            f"Social sample analysis failed: {error}" if operation == SAMPLE_OPERATION else
+            f"Agent execution failed: {error}"
         )
     record["finished_at"] = utc_now()
     _write_atomic(state_dir / "runs" / f"{record['id']}.json", record)
@@ -137,6 +181,17 @@ def _valid_record(record: object, identifier: str) -> bool:
         return False
     if not isinstance(request.get("operation"), str) or not request["operation"]:
         return False
+    if request["operation"] == AGENT_OPERATION:
+        agent = record.get("agent")
+        if (
+            not isinstance(request.get("task"), str)
+            or not isinstance(request.get("context_path"), str)
+            or not isinstance(agent, dict)
+            or agent.get("engine") != "codex exec"
+            or agent.get("profile") is not None
+            or (agent.get("thread_id") is not None and not isinstance(agent["thread_id"], str))
+        ):
+            return False
     if any(
         not isinstance(selected_route.get(key), str) or not selected_route[key]
         for key in ("domain", "handler", "reason")
@@ -161,7 +216,11 @@ def _valid_record(record: object, identifier: str) -> bool:
         return isinstance(record.get("result"), dict) and record.get("error") is None
     if record.get("status") == "failed":
         return (
-            record.get("result") is None
+            (record.get("result") is None or (
+                request["operation"] == AGENT_OPERATION
+                and isinstance(record.get("result"), dict)
+                and record["result"].get("outcome") == "blocked"
+            ))
             and isinstance(record.get("error"), str)
             and bool(record["error"])
         )

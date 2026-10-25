@@ -20,15 +20,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     commands = parser.add_subparsers(dest="command", required=True)
     run = commands.add_parser("run", help="Execute a supported local operation")
-    run.add_argument("operation", help="Supported: core.status, social.sample")
+    run.add_argument("operation", help="Supported: core.status, social.sample, core.agent")
     run.add_argument("--csv", type=Path, help="CSV input for social.sample")
+    run.add_argument("--task", help="One read-only repository task for core.agent")
+    run.add_argument("--context", type=Path, help="README.md or docs/NAME.md for core.agent")
     show = commands.add_parser("show", help="Recover an execution by ID")
     show.add_argument("identifier")
     args = parser.parse_args(argv)
 
     try:
         if args.command == "run":
-            record = execute(args.operation, args.state_dir, args.csv)
+            record = execute(args.operation, args.state_dir, args.csv, args.task, args.context)
         else:
             record = read_execution(args.identifier, args.state_dir)
     except (ValueError, OSError, json.JSONDecodeError) as error:
