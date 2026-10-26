@@ -10,6 +10,8 @@ from pathlib import Path
 from .approvals import ALLOWED_ACTIONS, create_proposal, decide_proposal, list_proposals, read_proposal
 from .core import REPOSITORY_ROOT, execute, read_execution
 from .social_import import list_posts
+from .social_connectors import ConnectorError
+from .instagram_sync import sync_instagram
 from .recommendation_evaluations import evaluate_recommendation, list_evaluations, read_evaluation
 from .social_history import evolution, latest, observations, publication, summarize_history
 from .recommendations import (associate_post, associated_posts, decide_recommendation,
@@ -37,6 +39,18 @@ def main(argv: list[str] | None = None) -> int:
     show.add_argument("identifier")
     social = commands.add_parser("social", help="Inspect local Social data and editorial follow-up")
     social_commands = social.add_subparsers(dest="social_command", required=True)
+    sync = social_commands.add_parser("sync", help="Explicit read-only platform API synchronization")
+    sync.add_argument("platform", choices=("instagram",))
+    sync.add_argument("--api-version", required=True, help="Explicit Graph version verified in Meta")
+    sync.add_argument("--expected-username", required=True, help="Authenticated account to verify")
+    sync.add_argument("--metadata", type=Path, help="JSON editorial classifications by official post ID")
+    sync.add_argument("--preview", action="store_true", help="Read API and preflight without writing")
+    sync.add_argument("--page-size", type=int, default=5)
+    sync.add_argument("--max-pages", type=int, default=1)
+    sync.add_argument("--max-posts", type=int, default=5)
+    sync.add_argument("--max-requests", type=int, default=100)
+    sync.add_argument("--timeout", type=float, default=10)
+    sync.add_argument("--deadline-seconds", type=float, default=120)
     for name in ("posts", "summary"):
         command = social_commands.add_parser(name)
         command.add_argument("--platform", choices=("Instagram", "TikTok", "LinkedIn"))
@@ -79,7 +93,13 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "show":
             record = read_execution(args.identifier, args.state_dir)
         elif args.command == "social":
-            if args.social_command == "recommendations":
+            if args.social_command == "sync":
+                record = sync_instagram(
+                    args.state_dir, api_version=args.api_version, expected_username=args.expected_username,
+                    metadata_path=args.metadata, preview=args.preview, page_size=args.page_size,
+                    max_pages=args.max_pages, max_posts=args.max_posts, max_requests=args.max_requests,
+                    timeout=args.timeout, deadline_seconds=args.deadline_seconds)
+            elif args.social_command == "recommendations":
                 name = args.recommendation_command
                 if name == "list":
                     record = list_recommendations(args.state_dir, args.status)
@@ -125,6 +145,10 @@ def main(argv: list[str] | None = None) -> int:
         else:
             decision = "approved" if args.approval_command == "approve" else "rejected"
             record = decide_proposal(args.identifier, decision, args.state_dir)
+    except ConnectorError as error:
+        print(json.dumps({"error": error.code, "status": error.status,
+                          "retry_after": error.retry_after}), file=sys.stderr)
+        return 2
     except (ValueError, OSError, json.JSONDecodeError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 2
@@ -132,6 +156,8 @@ def main(argv: list[str] | None = None) -> int:
     print(json.dumps(record, ensure_ascii=True, indent=2))
     if args.command in ("run", "show"):
         return 0 if record["status"] == "succeeded" else 1
+    if args.command == "social" and args.social_command == "sync":
+        return 1 if record["partial_errors"] else 0
     return 0
 
 

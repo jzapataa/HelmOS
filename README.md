@@ -1,5 +1,7 @@
 # HelmOS
 
+Conector Instagram solicitado I4-A2: [comando explícito, previsualización, seguridad y prueba real controlada](docs/I4_A2_INSTAGRAM.md). Esta evolución de Social se entrega separada del cierre V1.0; no activa sincronizaciones automáticas.
+
 I3-A: [importación CSV de publicaciones Social](docs/I3_A_SOCIAL_IMPORT.md). I3-B: [análisis y propuesta editorial](docs/I3_B_SOCIAL_ANALYSIS.md).
 
 I3-D2: [evaluación determinista de recomendaciones y consulta de histórico](docs/I3_D2_RECOMMENDATION_EVALUATIONS.md).

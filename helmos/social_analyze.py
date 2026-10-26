@@ -97,6 +97,10 @@ def prepare_dataset(state_dir: Path, platform: str | None = None,
         })
     coverage = {}
     temporal_limitations = []
+    if any(not post.get("topic") or not post.get("format") for post in posts):
+        temporal_limitations.append(
+            "Hay publicaciones con clasificación editorial pendiente: tema o formato null "
+            "significa desconocido; no inferir temas ni atribuirles resultados por tema o formato.")
     for name, group in totals.items():
         basis = group["metric_basis"]
         if basis == "unspecified":
@@ -249,7 +253,8 @@ def render_report(run_id: str, dataset: dict[str, object], editorial: dict[str, 
     for post in dataset["posts"]:
         metrics = ", ".join(f"{_safe(name)}={value}" for name, value in post["metrics"].items()) or "sin métricas"
         lines.append(f"- `{post['ref']}`: {_safe(post['platform'])}/{_safe(post['post_id'])}, "
-                     f"{post['published_at']}, {_safe(post['format'])}, {_safe(post['topic'])}; {metrics}.")
+                     f"{post['published_at']}, {_safe(post['format'] or 'formato pendiente')}, "
+                     f"{_safe(post['topic'] or 'tema pendiente')}; {metrics}.")
         for group in post["measurements"]:
             details = ", ".join(f"{_safe(name)}={datum['value']} (captura {datum['observed_at'] or 'desconocida'})"
                                 for name, datum in group["metrics"].items()) or "sin métricas"
@@ -300,6 +305,7 @@ def analyze(state_dir: Path, run_id: str, platform: str | None = None,
         "observations from hypotheses; no causal or cross-platform metric claims. "
         "Aggregate evidence uses only the stated metric_basis and latest known value per post and metric. "
         "Do not call undated values current or combine period, cumulative and unspecified measurements. "
+        "Null topic or format means pending classification: never infer it or attribute topic/format performance to it. "
         "Keep the calendar an orientative proposal, not approved work.\n\n"
         f"Editorial skill:\n{skill}\n\nDataset JSON:\n{json.dumps(dataset, ensure_ascii=False)}"
     )

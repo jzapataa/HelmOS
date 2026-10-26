@@ -84,6 +84,18 @@ def _same_measurement(left: dict[str, object], right: dict[str, object]) -> bool
                ("observed_at", "measurement_type", "period_start", "period_end", "metrics"))
 
 
+def _api_capture(observation: dict) -> str | None:
+    origin = observation.get("provenance", {})
+    if origin.get("source") == "official_api":
+        return origin.get("captured_at")
+    return None
+
+
+def observation_sort_key(item: dict) -> tuple:
+    return (item["observed_at"] is not None, item["observed_at"] or "",
+            _api_capture(item) or "")
+
+
 def _legacy_observation(post: dict[str, object]) -> dict[str, object]:
     return {
         "observed_at": None, "measurement_type": "unspecified",
@@ -248,7 +260,8 @@ def import_csv(path: Path, state_dir: Path) -> dict[str, object]:
 
 
 def _persist_posts(posts: list[dict[str, object]], state_dir: Path,
-                   source_csv: str | None = None) -> dict[str, object]:
+                   source_csv: str | None = None, *, precise_captures: bool = False,
+                   dry_run: bool = False) -> dict[str, object]:
     """Shared single-writer persistence for validated CSV and connector records.
 
     Validate the complete batch before calling. Preflight conflicts before writes;
@@ -274,30 +287,42 @@ def _persist_posts(posts: list[dict[str, object]], state_dir: Path,
             if incoming:
                 for item in current:
                     origin = item.get("provenance")
-                    if origin and any(origin.get(key) != incoming.get(key) for key in
-                                      ("account_id", "editorial_piece_id")):
+                    if origin and (origin.get("account_id") != incoming.get("account_id") or (
+                            origin.get("editorial_piece_id")
+                            and origin["editorial_piece_id"] != incoming["editorial_piece_id"])):
                         raise SocialImportError("Connector account or editorial identity differs")
-            if any(_same_measurement(item, observation) for item in current):
+            comparable = current
+            if precise_captures:
+                same_capture = [item for item in current if _api_capture(item) and
+                                _api_capture(item) == _api_capture(observation)]
+                if same_capture and not all(_same_measurement(item, observation) for item in same_capture):
+                    raise SocialImportError("Conflicting metrics for the same API capture")
+                comparable = same_capture or [max(current, key=observation_sort_key)]
+            if any(_same_measurement(item, observation) for item in comparable):
                 already_present += 1
                 continue
-            if observation["observed_at"] is None or any(
-                item["observed_at"] == observation["observed_at"] for item in current
-            ):
+            same_day = [item for item in current if item["observed_at"] == observation["observed_at"]]
+            precise = precise_captures and _api_capture(observation) and all(
+                _api_capture(item) and _api_capture(item) != _api_capture(observation)
+                for item in same_day)
+            if observation["observed_at"] is None or (same_day and not precise):
                 raise SocialImportError(
                     f"Ambiguous observation date or period: {post['platform']}/{post['post_id']}"
                 )
             directory = _observation_dir(state_dir, post["platform"], post["post_id"])
             digest = hashlib.sha256(json.dumps(
-                {key: observation[key] for key in ("observed_at", "measurement_type", "period_start", "period_end", "metrics")},
+                {**{key: observation[key] for key in ("observed_at", "measurement_type", "period_start", "period_end", "metrics")},
+                 **({"captured_at": _api_capture(observation)} if precise_captures else {})},
                 sort_keys=True, ensure_ascii=False,
             ).encode("utf-8")).hexdigest()
             additions.append((directory / f"{digest}.json", observation))
         else:
             new_posts.append(post)
-    for post in new_posts:
-        _save_post(_post_path(state_dir, post["platform"], post["post_id"]), post)
-    for observation_path, observation in additions:
-        _save_post(observation_path, observation)
+    if not dry_run:
+        for post in new_posts:
+            _save_post(_post_path(state_dir, post["platform"], post["post_id"]), post)
+        for observation_path, observation in additions:
+            _save_post(observation_path, observation)
     return {
         "source_csv": source_csv, "rows": len(posts),
         "imported": len(new_posts),

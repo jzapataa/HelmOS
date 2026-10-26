@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .social_import import (COMMON_METRICS, SPECIFIC_METRICS, SocialImportError,
-                            list_observations, list_posts)
+                            list_observations, list_posts, observation_sort_key)
 
 
 def publication(state_dir: Path, platform: str, post_id: str) -> dict[str, object]:
@@ -16,8 +16,7 @@ def publication(state_dir: Path, platform: str, post_id: str) -> dict[str, objec
 
 
 def observations(state_dir: Path, post: dict[str, object]) -> list[dict[str, object]]:
-    return sorted(list_observations(state_dir, post),
-                  key=lambda item: (item["observed_at"] is not None, item["observed_at"] or ""))
+    return sorted(list_observations(state_dir, post), key=observation_sort_key)
 
 
 def _group_key(item: dict[str, object]) -> tuple[str, str | None, str | None, str]:
@@ -30,8 +29,7 @@ def _group_key(item: dict[str, object]) -> tuple[str, str | None, str | None, st
 def latest_groups(items: list[dict[str, object]]) -> list[dict[str, object]]:
     """Keep the last known value of each metric within each comparable group."""
     groups: dict[tuple[str, str | None, str | None, str], dict[str, object]] = {}
-    for item in sorted(items, key=lambda value: (value["observed_at"] is not None,
-                                                 value["observed_at"] or "")):
+    for item in sorted(items, key=observation_sort_key):
         kind, start, end, capture_status = _group_key(item)
         group = groups.setdefault((kind, start, end, capture_status), {
             "measurement_type": kind, "period_start": start, "period_end": end,

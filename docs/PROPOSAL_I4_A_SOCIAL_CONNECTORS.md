@@ -1,5 +1,7 @@
 # Propuesta separada — preparación de conectores sociales
 
+Actualización I4-A2 (26-10-2026): la solicitud explícita del usuario autoriza transporte HTTP real de lectura y sincronización manual de Instagram Login mediante token de entorno. Su contrato y validación se documentan en [I4-A2](I4_A2_INSTAGRAM.md). Esta autorización posterior amplía únicamente Instagram; no modifica la especificación V1.0 ni convierte en autorizadas las restantes evoluciones excluidas abajo para I4-A1.
+
 Estado: propuesta documental pendiente de decisión; no modifica `SYSTEM_SPEC_V1.0.md`.
 
 La petición explícita de I4-A1 autoriza preparar conectores, documentación y pruebas simuladas. La especificación vigente mantiene las integraciones API fuera de V1.0 (§§1 y 5) y denomina I4 al incremento de Personal (§4). Por ello el trabajo se identifica como **I4-A1 solicitado**, sin reasignar el I4 aprobado ni declarar ampliado o terminado V1.0.
