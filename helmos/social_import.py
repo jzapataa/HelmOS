@@ -108,7 +108,9 @@ def list_observations(state_dir: Path, post: dict[str, object]) -> list[dict[str
             observation = json.loads(path.read_text(encoding="utf-8"))
         except (UnicodeError, json.JSONDecodeError) as error:
             raise SocialImportError(f"Invalid saved observation: {path.name}") from error
-        if not isinstance(observation, dict) or not all(key in observation for key in initial):
+        if not isinstance(observation, dict) or not all(key in observation for key in
+                ("observed_at", "measurement_type", "period_start", "period_end",
+                 "metrics", "source_csv", "source_row")):
             raise SocialImportError(f"Invalid saved observation: {path.name}")
         observations.append(observation)
     return observations
@@ -242,6 +244,16 @@ def summarize(posts: list[dict[str, object]]) -> dict[str, object]:
 
 def import_csv(path: Path, state_dir: Path) -> dict[str, object]:
     posts = _parse_csv(path)
+    return _persist_posts(posts, state_dir, str(path))
+
+
+def _persist_posts(posts: list[dict[str, object]], state_dir: Path,
+                   source_csv: str | None = None) -> dict[str, object]:
+    """Shared single-writer persistence for validated CSV and connector records.
+
+    Validate the complete batch before calling. Preflight conflicts before writes;
+    filesystem failures can leave a partial batch, recoverable by idempotent replay.
+    """
     directory = state_dir / "social" / "posts"
     if directory.is_symlink() or directory.parent.is_symlink():
         raise SocialImportError("Publication directory cannot be a symbolic link")
@@ -258,6 +270,13 @@ def import_csv(path: Path, state_dir: Path) -> dict[str, object]:
                 )
             observation = post["initial_observation"]
             current = list_observations(state_dir, saved)
+            incoming = observation.get("provenance")
+            if incoming:
+                for item in current:
+                    origin = item.get("provenance")
+                    if origin and any(origin.get(key) != incoming.get(key) for key in
+                                      ("account_id", "editorial_piece_id")):
+                        raise SocialImportError("Connector account or editorial identity differs")
             if any(_same_measurement(item, observation) for item in current):
                 already_present += 1
                 continue
@@ -280,7 +299,7 @@ def import_csv(path: Path, state_dir: Path) -> dict[str, object]:
     for observation_path, observation in additions:
         _save_post(observation_path, observation)
     return {
-        "source_csv": str(path), "rows": len(posts),
+        "source_csv": source_csv, "rows": len(posts),
         "imported": len(new_posts),
         "observations_added": len(additions), "already_present": already_present,
         "platforms": summarize(posts),
