@@ -12,6 +12,7 @@ from .core import REPOSITORY_ROOT, execute, read_execution
 from .social_import import list_posts
 from .social_connectors import ConnectorError
 from .instagram_sync import sync_instagram
+from .instagram_credentials import InstagramCredentials, KINDS, secure_input
 from .recommendation_evaluations import evaluate_recommendation, list_evaluations, read_evaluation
 from .social_history import evolution, latest, observations, publication, summarize_history
 from .recommendations import (associate_post, associated_posts, decide_recommendation,
@@ -39,6 +40,14 @@ def main(argv: list[str] | None = None) -> int:
     show.add_argument("identifier")
     social = commands.add_parser("social", help="Inspect local Social data and editorial follow-up")
     social_commands = social.add_subparsers(dest="social_command", required=True)
+    credentials = social_commands.add_parser("credentials", help="Manage protected Instagram credentials")
+    credentials.add_argument("platform", choices=("instagram",))
+    credentials.add_argument("credential_action", choices=("import", "status", "check", "refresh", "preflight"))
+    credentials.add_argument("--api-version", required=True)
+    credentials.add_argument("--expected-username", required=True)
+    credentials.add_argument("--kind", choices=KINDS, default="unknown", help="Import only: verified token origin/type")
+    credentials.add_argument("--issued-at", help="Import only: known issuance ISO timestamp with timezone")
+    credentials.add_argument("--expires-at", help="Import only: known expiry ISO timestamp with timezone")
     sync = social_commands.add_parser("sync", help="Explicit read-only platform API synchronization")
     sync.add_argument("platform", choices=("instagram",))
     sync.add_argument("--api-version", required=True, help="Explicit Graph version verified in Meta")
@@ -85,6 +94,10 @@ def main(argv: list[str] | None = None) -> int:
         command = approval_commands.add_parser(name)
         command.add_argument("identifier")
     args = parser.parse_args(argv)
+    if (args.command == "social" and args.social_command == "credentials"
+            and args.credential_action != "import"
+            and (args.kind != "unknown" or args.issued_at or args.expires_at)):
+        parser.error("--kind, --issued-at and --expires-at apply only to credentials import")
 
     try:
         if args.command == "run":
@@ -93,7 +106,25 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "show":
             record = read_execution(args.identifier, args.state_dir)
         elif args.command == "social":
-            if args.social_command == "sync":
+            if args.social_command == "credentials":
+                manager = InstagramCredentials(api_version=args.api_version,
+                                               expected_username=args.expected_username)
+                if args.credential_action == "import":
+                    record = manager.import_token(secure_input(), kind=args.kind,
+                                                  issued_at=args.issued_at, expires_at=args.expires_at)
+                elif args.credential_action == "status":
+                    record = manager.status()
+                elif args.credential_action == "check":
+                    record = manager.check()
+                elif args.credential_action == "refresh":
+                    record = manager.refresh()
+                else:
+                    record = sync_instagram(
+                        args.state_dir, api_version=args.api_version,
+                        expected_username=args.expected_username, preview=True,
+                        page_size=1, max_pages=1, max_posts=1, max_requests=10)
+                    record["preflight"] = "bounded_preview"
+            elif args.social_command == "sync":
                 record = sync_instagram(
                     args.state_dir, api_version=args.api_version, expected_username=args.expected_username,
                     metadata_path=args.metadata, preview=args.preview, page_size=args.page_size,
@@ -147,7 +178,10 @@ def main(argv: list[str] | None = None) -> int:
             record = decide_proposal(args.identifier, decision, args.state_dir)
     except ConnectorError as error:
         print(json.dumps({"error": error.code, "status": error.status,
-                          "retry_after": error.retry_after}), file=sys.stderr)
+                          "retry_after": error.retry_after,
+                          "reauthorization_required": error.code in {
+                              "authentication_required", "instagram_token_expired_reauthorize",
+                              "instagram_permissions_required"}}), file=sys.stderr)
         return 2
     except (ValueError, OSError, json.JSONDecodeError) as error:
         print(f"Error: {error}", file=sys.stderr)
@@ -157,6 +191,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command in ("run", "show"):
         return 0 if record["status"] == "succeeded" else 1
     if args.command == "social" and args.social_command == "sync":
+        return 1 if record["partial_errors"] else 0
+    if (args.command == "social" and args.social_command == "credentials"
+            and args.credential_action == "preflight"):
         return 1 if record["partial_errors"] else 0
     return 0
 

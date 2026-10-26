@@ -1,5 +1,7 @@
 # Propuesta separada — preparación de conectores sociales
 
+Actualización I4-B1 (26-10-2026): la petición explícita posterior autoriza gestión local segura y renovación de credenciales Instagram, sin programación ni despliegue. [Implementación y límites de validación](I4_B1_INSTAGRAM_CREDENTIALS.md). No cambia las exclusiones de otras plataformas ni la especificación V1.0.
+
 Actualización I4-A2 (26-10-2026): la solicitud explícita del usuario autoriza transporte HTTP real de lectura y sincronización manual de Instagram Login mediante token de entorno. Su contrato y validación se documentan en [I4-A2](I4_A2_INSTAGRAM.md). Esta autorización posterior amplía únicamente Instagram; no modifica la especificación V1.0 ni convierte en autorizadas las restantes evoluciones excluidas abajo para I4-A1.
 
 Estado: propuesta documental pendiente de decisión; no modifica `SYSTEM_SPEC_V1.0.md`.

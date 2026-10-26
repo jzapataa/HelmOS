@@ -116,6 +116,8 @@ def response_payload(response: Response, platform: str) -> dict:
         if isinstance(remote_error, dict):
             if remote_error.get("code") == 190:
                 raise ConnectorError("authentication_required", status=response.status)
+            if remote_error.get("code") in (10, 200):
+                raise ConnectorError("instagram_permissions_required", status=response.status)
             if remote_error.get("code") in (4, 17, 32, 613):
                 raise ConnectorError("rate_limited", status=response.status, retry_after=retry)
             if remote_error.get("code") == 100 and response.status in (200, 400):
@@ -320,7 +322,7 @@ class InstagramConnector(SocialConnector):
                     if values[0]["value"] is not None:
                         metrics[self.metric_mapping[name]] = _count(values[0]["value"])
             except ConnectorError as error:
-                if error.code in ("authentication_required", "rate_limited", "request_budget_exceeded",
+                if error.code in ("authentication_required", "instagram_permissions_required", "rate_limited", "request_budget_exceeded",
                                   "provider_failure", "transport_failure", "deadline_exceeded",
                                   "response_too_large", "redirect_rejected", "api_version_mismatch",
                                   "instagram_request_not_allowed"):

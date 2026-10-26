@@ -404,8 +404,11 @@ class InstagramTransportTests(unittest.TestCase):
 
     def test_missing_token_invalid_limits_and_disallowed_requests_use_no_network(self):
         with patch.dict("os.environ", {"HELMOS_INSTAGRAM_ACCESS_TOKEN": ""}), \
+                patch("helmos.credential_store.WindowsCredentialStore.load", return_value=None), \
+                patch("helmos.instagram_http.http.client.HTTPSConnection") as network, \
                 self.assertRaisesRegex(ConnectorError, "instagram_token_required"):
             InstagramHTTPProvider(api_version="v24.0", expected_username="JorgeBytes")
+        network.assert_not_called()
         for options in ({"timeout": 0}, {"timeout": float("nan")}, {"max_requests": 1}, {"deadline_seconds": 601}):
             with self.subTest(options=options), self.assertRaises(ConnectorError):
                 self.build(**options)

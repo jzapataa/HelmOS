@@ -1,5 +1,7 @@
 # I4-A2 solicitado — Instagram Login real
 
+Actualización I4-B1 (26-10-2026): la evolución explícitamente autorizada añade almacén DPAPI y gestión de renovación. [Contrato, precedencia de entorno, comandos y límites actuales](I4_B1_INSTAGRAM_CREDENTIALS.md). Las descripciones de «solo entorno / sin renovación» de este documento describen I4-A2 y quedan ampliadas por I4-B1.
+
 Rama: `feature/i4-a-social-connectors`. Incremento autorizado expresamente por el usuario, posterior a I4-A1 y separado del cierre V1.0 y de Personal. No modifica las especificaciones originales ni inicia I4-B.
 
 ## Comando y límites

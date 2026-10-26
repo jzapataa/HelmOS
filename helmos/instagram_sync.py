@@ -7,7 +7,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .instagram_http import InstagramHTTPProvider
+from .instagram_credentials import InstagramCredentials
 from .social_connectors import ConnectorError, EditorialMetadata, InstagramConnector, MetricMetadata
 from .social_import import SocialImportError, _persist_posts, list_observations, list_posts
 
@@ -59,9 +59,11 @@ def sync_instagram(state_dir: Path, *, api_version: str, expected_username: str,
                 raise SocialImportError("Existing publication metadata differs")
             piece_id = proposed.editorial_piece_id
         metadata[post_id] = MetricMetadata(post.get("topic"), post.get("format"), piece_id)
-    provider = provider or InstagramHTTPProvider(
-        api_version=api_version, expected_username=expected_username, timeout=timeout,
-        deadline_seconds=deadline_seconds, max_requests=max_requests)
+    credential_status = None
+    if provider is None:
+        provider, credential_status = InstagramCredentials(
+            api_version=api_version, expected_username=expected_username, timeout=timeout,
+            deadline_seconds=deadline_seconds, max_requests=max_requests).prepare()
     connector = InstagramConnector(provider, api_version=api_version,
                                    max_requests=max_requests, partial_insights=True,
                                    page_size=page_size, max_pages=max_pages, max_posts=max_posts,
@@ -74,6 +76,7 @@ def sync_instagram(state_dir: Path, *, api_version: str, expected_username: str,
     existing = len(discovered_ids & saved.keys())
     planned = plan["imported"] + plan["observations_added"]
     return {
+        "credential": credential_status,
         "platform": "Instagram", "account_id": provider.account.account_id,
         "api_version": api_version, "captured_at": capture.astimezone(timezone.utc).isoformat(),
         "preview": preview, "status": "partial" if connector.partial_errors else "succeeded",
