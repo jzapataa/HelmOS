@@ -2,6 +2,8 @@
 
 I3-A: [importación CSV de publicaciones Social](docs/I3_A_SOCIAL_IMPORT.md). I3-B: [análisis y propuesta editorial](docs/I3_B_SOCIAL_ANALYSIS.md).
 
+I3-D2: [evaluación determinista de recomendaciones y consulta de histórico](docs/I3_D2_RECOMMENDATION_EVALUATIONS.md).
+
 HelmOS V1.0 se implementa por incrementos. La [especificación V1.0](docs/SYSTEM_SPEC_V1.0.md) rige el trabajo actual; la [V0.1 original](docs/SYSTEM_SPEC_FINAL_v0.1.docx) conserva las reglas aplicables a Personal. Jorge OS y HelmOS son el mismo producto con distinto nombre.
 
 ## Incremento I1: Core local

@@ -24,4 +24,4 @@ El registro ocurre después de guardar la ejecución completada. Si se interrump
 python -m helmos social recommendations register-run <id-de-ejecución>
 ```
 
-Las ejecuciones históricas no se registran automáticamente. Los registros e informes anteriores se leen sin migración. La evaluación de resultados queda para I3-D2.
+Las ejecuciones históricas no se registran automáticamente. Los registros e informes anteriores se leen sin migración. La evaluación de resultados se documenta en [I3-D2](I3_D2_RECOMMENDATION_EVALUATIONS.md).

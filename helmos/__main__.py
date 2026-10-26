@@ -10,6 +10,7 @@ from pathlib import Path
 from .approvals import ALLOWED_ACTIONS, create_proposal, decide_proposal, list_proposals, read_proposal
 from .core import REPOSITORY_ROOT, execute, read_execution
 from .social_import import list_posts
+from .recommendation_evaluations import evaluate_recommendation, list_evaluations, read_evaluation
 from .social_history import evolution, latest, observations, publication, summarize_history
 from .recommendations import (associate_post, associated_posts, decide_recommendation,
                               list_recommendations, read_recommendation, register_run)
@@ -34,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--to", dest="to_date", help="End date YYYY-MM-DD for social.analyze")
     show = commands.add_parser("show", help="Recover an execution by ID")
     show.add_argument("identifier")
-    social = commands.add_parser("social", help="Read locally imported publications")
+    social = commands.add_parser("social", help="Inspect local Social data and editorial follow-up")
     social_commands = social.add_subparsers(dest="social_command", required=True)
     for name in ("posts", "summary"):
         command = social_commands.add_parser(name)
@@ -47,8 +48,11 @@ def main(argv: list[str] | None = None) -> int:
     recommendation_commands = recommendations.add_subparsers(dest="recommendation_command", required=True)
     listing = recommendation_commands.add_parser("list")
     listing.add_argument("--status", choices=("pending", "accepted", "rejected"))
-    for name in ("show", "accept", "reject", "posts"):
+    for name in ("show", "accept", "reject", "posts", "evaluate", "evaluations"):
         recommendation_commands.add_parser(name).add_argument("identifier")
+    evaluations = social_commands.add_parser("evaluations", help="Recover an editorial evaluation")
+    evaluation_commands = evaluations.add_subparsers(dest="evaluation_command", required=True)
+    evaluation_commands.add_parser("show").add_argument("identifier")
     association = recommendation_commands.add_parser("associate")
     association.add_argument("identifier")
     association.add_argument("--platform", required=True, choices=("Instagram", "TikTok", "LinkedIn"))
@@ -89,8 +93,14 @@ def main(argv: list[str] | None = None) -> int:
                     record = associate_post(args.identifier, args.platform, args.post_id, args.state_dir)
                 elif name == "posts":
                     record = associated_posts(args.identifier, args.state_dir)
+                elif name == "evaluate":
+                    record = evaluate_recommendation(args.identifier, args.state_dir)
+                elif name == "evaluations":
+                    record = list_evaluations(args.identifier, args.state_dir)
                 else:
                     record = register_run(read_execution(args.run_id, args.state_dir), args.state_dir)
+            elif args.social_command == "evaluations":
+                record = read_evaluation(args.identifier, args.state_dir)
             elif args.social_command == "posts":
                 record = list_posts(args.state_dir, args.platform)
             elif args.social_command == "summary":
