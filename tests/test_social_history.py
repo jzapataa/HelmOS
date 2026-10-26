@@ -100,6 +100,9 @@ class SocialHistoryTests(unittest.TestCase):
         dataset = social_analyze.prepare_dataset(self.state, "TikTok")
         self.assertEqual(dataset["coverage"]["TikTok"]["metric_basis"], "period")
         self.assertEqual(dataset["coverage"]["TikTok"]["metrics"]["likes"]["sum"], 7)
+        evidence = next(item for item in dataset["evidence"].values() if item["metric"] == "likes")
+        self.assertEqual((evidence["measurement_type"], evidence["period_start"], evidence["period_end"]),
+                         ("period", "2026-01-02", "2026-01-07"))
         self.import_text(DATED + "\nTikTok,c,2026-01-01,video,fictional,2026-01-09,period,2026-01-03,2026-01-08,5,\n")
         mixed = self.cli("summary")["TikTok"]
         self.assertIsNone(mixed["metric_basis"])
@@ -114,11 +117,11 @@ class SocialHistoryTests(unittest.TestCase):
         self.assertEqual(dataset["coverage"]["TikTok"]["metrics"]["likes"]["sum"], 20)
         self.assertEqual(dataset["posts"][0]["metrics"]["likes"], 15)
         self.assertTrue(dataset["temporal_limitations"])
+        identifier = next(key for key, item in dataset["evidence"].items()
+                          if item["metric"] == "likes")
         answer = {
             "findings": [{"claim": "Hay datos de interacción.", "kind": "observation",
-                          "post_refs": ["P001"], "metric_evidence": [{
-                              "platform": "TikTok", "metric": "likes", "sum": 20,
-                              "observed_posts": 2}]}],
+                          "post_refs": ["P001"], "metric_evidence": [identifier]}],
             "limitations": ["La muestra es pequeña."],
             "recommendations": [{"action": "Revisar el tema.", "rationale": "Explorar la respuesta.",
                                  "post_refs": ["P001"]}],
@@ -133,11 +136,12 @@ class SocialHistoryTests(unittest.TestCase):
         self.assertIn("2026-01-05", report)
         self.assertIn("ventana 2026-01-04 a 2026-01-06", report)
         self.assertIn("período", report)
-        answer["findings"][0]["metric_evidence"][0]["sum"] = 23
+        self.assertEqual(run["result"]["editorial"]["findings"][0]["metric_evidence"][0]["sum"], 20)
+        answer["findings"][0]["metric_evidence"][0] = "E999"
         with patch.object(social_analyze, "run_structured", return_value=outcome):
             rejected = core.execute("social.analyze", self.state, platform="TikTok")
         self.assertEqual(rejected["status"], "failed")
-        self.assertIn("unverifiable metric", rejected["error"])
+        self.assertIn("unknown or unavailable metric evidence", rejected["error"])
 
 
 if __name__ == "__main__":

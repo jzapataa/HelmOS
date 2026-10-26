@@ -113,6 +113,10 @@ class SocialAnalyzeTests(unittest.TestCase):
                  dict(self.valid_answer(), recommendations=[]),
                  dict(self.valid_answer(), calendar=[]),
                  dict(self.valid_answer(), limitations=["Hay 999 publicaciones."])]
+        copied_numbers = self.valid_answer()
+        copied_numbers["findings"][0]["metric_evidence"] = [
+            {"platform": "Instagram", "metric": "saves", "sum": 5, "observed_posts": 1}]
+        cases.append(copied_numbers)
         for answer in cases:
             with self.subTest(answer=answer):
                 with patch.object(social_analyze, "run_structured", return_value=self.fake_ai(answer)):
@@ -120,18 +124,58 @@ class SocialAnalyzeTests(unittest.TestCase):
                 self.assertEqual(run["status"], "failed")
                 self.assertFalse((self.state / "social" / "reports" / f"{run['id']}.md").exists())
 
-    def test_rejects_wrong_structured_metric_and_preserves_core_agent_route(self) -> None:
+    def test_rejects_unknown_evidence_and_preserves_core_agent_route(self) -> None:
         self.import_fictitious_templates()
         answer = self.valid_answer()
-        answer["findings"][0]["metric_evidence"] = [{
-            "platform": "Instagram", "metric": "likes", "sum": 999,
-            "observed_posts": 1,
-        }]
+        answer["findings"][0]["metric_evidence"] = ["E999"]
         with patch.object(social_analyze, "run_structured", return_value=self.fake_ai(answer)):
             run = core.execute("social.analyze", self.state)
         self.assertEqual(run["status"], "failed")
-        self.assertIn("unverifiable metric", run["error"])
+        self.assertIn("unknown or unavailable metric evidence", run["error"])
         self.assertEqual(core.route("core.agent")["handler"], "codex_exec")
+
+    def test_rejects_incompatible_and_unavailable_evidence(self) -> None:
+        self.import_fictitious_templates()
+        all_data = social_analyze.prepare_dataset(self.state)
+        tiktok_id = next(key for key, item in all_data["evidence"].items()
+                         if item["platform"] == "TikTok")
+        instagram_data = social_analyze.prepare_dataset(self.state, "Instagram")
+        self.assertFalse(any(item["metric"] == "clicks" for item in instagram_data["evidence"].values()))
+        cases = ((tiktok_id, "incompatible publication"),
+                 ("E999", "unknown or unavailable"),
+                 ("clicks", "unknown or unavailable"))
+        for identifier, detail in cases:
+            with self.subTest(identifier=identifier):
+                answer = self.valid_answer()
+                answer["findings"][0]["metric_evidence"] = [identifier]
+                with patch.object(social_analyze, "run_structured",
+                                  return_value=self.fake_ai(answer)) as ai:
+                    run = core.execute("social.analyze", self.state)
+                ai.assert_called_once()
+                self.assertEqual(run["status"], "failed")
+                self.assertIn(detail, run["error"])
+                self.assertFalse((self.state / "social" / "reports" / f"{run['id']}.md").exists())
+
+    def test_saved_metric_evidence_uses_python_values_without_requesting_copies(self) -> None:
+        self.import_fictitious_templates()
+        dataset = social_analyze.prepare_dataset(self.state, "Instagram")
+        identifier = next(key for key, item in dataset["evidence"].items()
+                          if item["metric"] == "saves")
+        answer = self.valid_answer()
+        answer["findings"][0]["metric_evidence"] = [identifier]
+        with patch.object(social_analyze, "run_structured", return_value=self.fake_ai(answer)) as ai:
+            run = core.execute("social.analyze", self.state, platform="Instagram")
+        self.assertEqual(run["status"], "succeeded", run["error"])
+        schema = ai.call_args.args[2]
+        self.assertEqual(schema["properties"]["findings"]["items"]["properties"]["metric_evidence"]
+                         ["items"], {"type": "string"})
+        self.assertIn("select metric evidence only by IDs", ai.call_args.args[0])
+        self.assertIn("Never reproduce metric sums", ai.call_args.args[0])
+        verified = run["result"]["editorial"]["findings"][0]["metric_evidence"][0]
+        self.assertEqual(verified["id"], identifier)
+        self.assertEqual(verified["sum"], dataset["evidence"][identifier]["sum"])
+        report = Path(run["result"]["report_path"]).read_text(encoding="utf-8")
+        self.assertIn(f"suma {verified['sum']} en {verified['observed_posts']}", report)
 
     def test_editorial_schema_uses_real_transport_envelope(self) -> None:
         self.import_fictitious_templates()
