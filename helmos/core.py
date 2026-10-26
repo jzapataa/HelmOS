@@ -13,6 +13,7 @@ from .agent import AgentExecutionError, MODEL, REASONING_EFFORT, load_context, r
 from .social_sample import SampleValidationError, analyze_csv
 from .social_import import SocialImportError, import_csv
 from .social_analyze import SocialAnalysisError, analyze
+from .recommendations import register_run
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -136,7 +137,7 @@ def execute(
             ["read selected CSV", "write execution record"] if operation == SAMPLE_OPERATION else
             ["read selected CSV", "write Social posts", "write execution record"]
             if operation == IMPORT_OPERATION else
-            ["read imported publications", "Codex read-only sandbox", "write Markdown report", "write execution record"]
+            ["read imported publications", "Codex read-only sandbox", "write Markdown report", "write execution record", "write recommendations"]
             if operation == ANALYZE_OPERATION else
             ["Codex read-only sandbox", "write execution record"]
         ),
@@ -190,6 +191,8 @@ def execute(
         )
     record["finished_at"] = utc_now()
     _write_atomic(state_dir / "runs" / f"{record['id']}.json", record)
+    if operation == ANALYZE_OPERATION and record["status"] == "succeeded":
+        register_run(record, state_dir)
     return record
 
 
