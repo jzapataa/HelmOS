@@ -1,0 +1,342 @@
+from __future__ import annotations
+
+import contextlib
+import io
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import Mock, patch
+from xml.etree import ElementTree as ET
+
+from helmos.__main__ import main
+from helmos.scheduled_instagram import (SyncConfig, execution_lock, run_scheduled,
+                                        sync_status, write_record)
+from helmos.social_connectors import ConnectorError
+from helmos.social_import import list_posts, list_observations
+from helmos.windows_tasks import NAMESPACE, TASK_NAME, manage_task, task_xml
+from test_instagram_sync import FakeHTTPResponse, IDENTITY, MEDIA, MARKER, listing, metrics
+
+
+class MemoryStore:
+    def __init__(self):
+        self.record = {"token": MARKER, "kind": "unknown", "username": "jorgebytes"}
+
+    def transaction(self):
+        return contextlib.nullcontext()
+
+    def load(self):
+        return self.record.copy() if self.record else None
+
+    def save(self, value):
+        self.record = value.copy()
+
+
+class ScheduledSyncTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="HelmOS scheduled spaces ")
+        self.addCleanup(temporary.cleanup)
+        self.state = Path(temporary.name) / "state with spaces"
+        self.store = MemoryStore()
+        # Both the credential and HTTP boundaries are replaced for every test.
+        self.addCleanup(patch.stopall)
+        patch("helmos.instagram_credentials.WindowsCredentialStore", return_value=self.store).start()
+        patch("helmos.credential_store.WindowsCredentialStore.load",
+              side_effect=AssertionError("real credential store forbidden")).start()
+        self.connection = Mock()
+        self.http = patch("helmos.instagram_http.http.client.HTTPSConnection",
+                          return_value=self.connection).start()
+        patch.dict(os.environ, {"HELMOS_INSTAGRAM_ACCESS_TOKEN": "IGNORED-FICTIONAL-ENV"}).start()
+        patch("helmos.windows_tasks.subprocess.run",
+              side_effect=AssertionError("scheduler forbidden in sync tests")).start()
+        self.config = SyncConfig()
+
+    def responses(self, tail=None, identity=None):
+        values = [FakeHTTPResponse(identity or IDENTITY)]
+        values += tail if tail is not None else [
+            FakeHTTPResponse(listing().body), *(FakeHTTPResponse(item.body) for item in metrics())]
+        self.connection.getresponse.side_effect = values
+
+    def run_sync(self, tail=None):
+        self.responses(tail)
+        return run_scheduled(self.state, self.config)
+
+    def test_complete_sync_history_and_repeat_are_safe(self):
+        first, code = self.run_sync()
+        self.assertEqual(code, 0)
+        self.assertEqual(first["result"]["observations_saved"], 1)
+        original = {str(p.relative_to(self.state)): p.read_bytes()
+                    for p in (self.state / "social" / "posts").rglob("*.json")}
+        second, code = self.run_sync()
+        self.assertEqual(code, 0)
+        self.assertEqual(second["result"]["observations_saved"], 0)
+        changed = [FakeHTTPResponse(listing().body),
+                   *(FakeHTTPResponse(item.body) for item in metrics(12))]
+        third, code = self.run_sync(changed)
+        self.assertEqual(code, 0)
+        post = list_posts(self.state)[0]
+        observations = list_observations(self.state, post)
+        self.assertEqual(len(observations), 2)
+        self.assertEqual(observations[-1]["provenance"]["captured_at"], third["result"]["captured_at"])
+        for path, content in original.items():
+            self.assertEqual((self.state / path).read_bytes(), content)
+        self.assertEqual(sync_status(self.state)["last_success"]["id"], third["id"])
+        self.assertEqual(self.connection.request.call_args.kwargs["headers"]["Authorization"], "Bearer " + MARKER)
+        for path in self.state.rglob("*.json"):
+            self.assertNotIn(MARKER, path.read_text())
+
+    def test_missing_token_and_account_mismatch_never_sync(self):
+        self.store.record = None
+        record, code = run_scheduled(self.state, self.config)
+        self.assertEqual(code, 2)
+        self.assertTrue(record["reauthorization_required"])
+        self.http.assert_not_called()
+        self.store = MemoryStore()
+        with patch("helmos.instagram_credentials.WindowsCredentialStore", return_value=self.store):
+            self.responses(identity=dict(IDENTITY, username="somebody_else"))
+            record, code = run_scheduled(self.state, self.config)
+        self.assertEqual(code, 2)
+        self.assertEqual(record["error"], "instagram_account_mismatch")
+        self.assertEqual(list_posts(self.state), [])
+
+    def test_rate_limit_keeps_completed_publication_and_retry_after(self):
+        tail = [FakeHTTPResponse(listing([MEDIA, dict(MEDIA, id="124")]).body),
+                *(FakeHTTPResponse(item.body) for item in metrics()),
+                FakeHTTPResponse({"message": MARKER}, 429, {"Retry-After": "60"})]
+        record, code = self.run_sync(tail)
+        self.assertEqual(code, 2)
+        self.assertEqual(record["status"], "failed")
+        self.assertEqual(record["result"]["failure"]["retry_after"], 60)
+        self.assertEqual(record["result"]["posts_imported"], 1)
+        self.assertEqual(len(list_posts(self.state)), 1)
+        self.assertIsNone(sync_status(self.state)["last_success"])
+        self.assertEqual(self.connection.getresponse.call_count, 9)
+        retry = [FakeHTTPResponse(listing([MEDIA, dict(MEDIA, id="124")]).body),
+                 *(FakeHTTPResponse(item.body) for item in metrics()),
+                 *(FakeHTTPResponse(item.body) for item in metrics())]
+        recovered, code = self.run_sync(retry)
+        self.assertEqual(code, 0)
+        self.assertEqual(recovered["result"]["posts_imported"], 1)
+        self.assertEqual(len(list_posts(self.state)), 2)
+        self.assertEqual(sync_status(self.state)["last_success"]["id"], recovered["id"])
+
+    def test_auth_failure_after_first_post_keeps_partial_and_signals_reauthorization(self):
+        tail = [FakeHTTPResponse(listing([MEDIA, dict(MEDIA, id="124")]).body),
+                *(FakeHTTPResponse(item.body) for item in metrics()),
+                FakeHTTPResponse({"error": {"code": 190, "message": MARKER}}, 400)]
+        record, code = self.run_sync(tail)
+        self.assertEqual(code, 2)
+        self.assertTrue(record["reauthorization_required"])
+        self.assertEqual(len(list_posts(self.state)), 1)
+
+    def test_temporary_server_error_on_next_page_keeps_completed_posts(self):
+        tail = [FakeHTTPResponse(listing(more=True).body),
+                *(FakeHTTPResponse(item.body) for item in metrics()),
+                FakeHTTPResponse({"message": MARKER}, 503)]
+        record, code = self.run_sync(tail)
+        self.assertEqual((record["status"], code), ("failed", 2))
+        self.assertEqual(record["result"]["failure"]["status"], 503)
+        self.assertEqual(record["result"]["posts_imported"], 1)
+        self.assertEqual(len(list_posts(self.state)), 1)
+
+    def test_transport_failure_is_finite_and_retains_last_success(self):
+        success, _ = self.run_sync()
+        self.connection.request.side_effect = TimeoutError(MARKER)
+        record, code = run_scheduled(self.state, self.config)
+        self.assertEqual(code, 2)
+        self.assertEqual(record["error"], "transport_failure")
+        self.assertEqual(sync_status(self.state)["last_success"]["id"], success["id"])
+        self.assertNotIn(MARKER, json.dumps(record))
+
+    def test_metric_failure_and_bounded_listing_are_not_success(self):
+        tail = [FakeHTTPResponse(listing().body), FakeHTTPResponse({}, 503),
+                *(FakeHTTPResponse(item.body) for item in metrics()[1:])]
+        record, code = self.run_sync(tail)
+        self.assertEqual((record["status"], code), ("partial", 1))
+        tail[0] = FakeHTTPResponse(listing(more=True).body)
+        self.responses([tail[0], *(FakeHTTPResponse(item.body) for item in metrics())])
+        record, code = run_scheduled(self.state, SyncConfig(max_pages=1))
+        self.assertEqual((record["status"], code), ("partial", 1))
+
+    def test_request_budget_and_deadline_fail(self):
+        self.responses()
+        record, code = run_scheduled(self.state, SyncConfig(max_requests=2))
+        self.assertEqual(code, 2)
+        self.assertEqual(record["result"]["failure"]["code"], "request_budget_exceeded")
+        self.responses()
+        with patch("helmos.instagram_http.time.monotonic", side_effect=[0, 0, 0, 1000]):
+            record, code = run_scheduled(self.state, self.config)
+        self.assertEqual(code, 2)
+
+    def test_lock_excludes_overlapping_run_without_reading_credentials(self):
+        directory = self.state / "social" / "scheduled_instagram"
+        with execution_lock(directory):
+            record, code = run_scheduled(self.state, self.config)
+        self.assertEqual(code, 3)
+        self.http.assert_not_called()
+        self.assertEqual(record["error"], "scheduled_sync_busy")
+        self.assertEqual(self.run_sync()[1], 0)
+
+    def test_manual_sync_and_scheduled_sync_share_data_lock(self):
+        self.responses()
+        with execution_lock(self.state.parent, f".{self.state.name}.instagram.lock"):
+            record, code = run_scheduled(self.state, self.config)
+        self.assertEqual((record["status"], code), ("busy", 3))
+        self.assertEqual(list_posts(self.state), [])
+
+    def test_interrupted_run_is_recovered_and_lock_file_survives(self):
+        directory = self.state / "social" / "scheduled_instagram"
+        path = directory / "runs" / "old.json"
+        write_record(path, {"id": "old", "started_at": "2000-01-01", "status": "running"})
+        record, code = self.run_sync()
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(path.read_text())["status"], "interrupted")
+        self.assertTrue((directory / "execution.lock").exists())
+        self.assertEqual(sync_status(self.state)["last_run"]["id"], record["id"])
+
+    def test_lock_is_cross_process_and_released_after_process_termination(self):
+        directory = self.state / "social" / "scheduled_instagram"
+        script = (
+            "from pathlib import Path; import sys; "
+            "from helmos.scheduled_instagram import execution_lock; "
+            "lock = execution_lock(Path(sys.argv[1])); lock.__enter__(); "
+            "print('locked', flush=True); sys.stdin.read()")
+        process = subprocess.Popen([sys.executable, "-c", script, str(directory)],
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, text=True)
+        try:
+            self.assertEqual(process.stdout.readline().strip(), "locked")
+            self.assertEqual(run_scheduled(self.state, self.config)[1], 3)
+        finally:
+            process.kill()
+            process.communicate(timeout=10)
+        self.assertEqual(self.run_sync()[1], 0)
+
+    def test_persistence_failure_never_returns_success(self):
+        self.responses()
+        with patch("helmos.scheduled_instagram.write_record", side_effect=OSError(MARKER)):
+            record, code = run_scheduled(self.state, self.config)
+        self.assertEqual(code, 2)
+        self.http.assert_not_called()
+        self.assertNotIn(MARKER, json.dumps(record))
+
+    def test_atomic_journal_failure_preserves_previous_record(self):
+        path = self.state / "record.json"
+        write_record(path, {"status": "running"})
+        original = path.read_bytes()
+        with patch("helmos.scheduled_instagram.os.replace", side_effect=OSError(MARKER)):
+            with self.assertRaises(OSError):
+                write_record(path, {"status": "succeeded"})
+        self.assertEqual(path.read_bytes(), original)
+        self.assertEqual(list(self.state.iterdir()), [path])
+
+    def test_cli_propagates_partial_fatal_and_busy_codes(self):
+        args = ["--state-dir", str(self.state), "social", "scheduled-sync", "run"]
+        tail = [FakeHTTPResponse(listing().body), FakeHTTPResponse({}, 503),
+                *(FakeHTTPResponse(item.body) for item in metrics()[1:])]
+        self.responses(tail)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(main(args), 1)
+        self.connection.request.side_effect = TimeoutError(MARKER)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(main(args), 2)
+        with execution_lock(self.state / "social" / "scheduled_instagram"), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(main(args), 3)
+
+    def test_cli_codes_and_status_are_json(self):
+        args = ["--state-dir", str(self.state), "social", "scheduled-sync"]
+        self.responses()
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(main([*args, "run"]), 0)
+        self.assertEqual(json.loads(output.getvalue())["status"], "succeeded")
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(main([*args, "status"]), 0)
+        self.assertIsNotNone(json.loads(output.getvalue())["last_success"])
+        for options in (["--max-requests", "1"], ["--deadline-seconds", "nan"],
+                        ["--interval-days", "0"], ["--api-version", "bad"]):
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(main([*args, "run", *options]), 2)
+
+
+class TaskSchedulerTests(unittest.TestCase):
+    SID = "S-1-5-21-111-222-333-1001"
+
+    def xml(self, **kwargs):
+        return task_xml(Path(r"C:\Program Files\Python\python.exe"),
+                        Path(r"C:\Helm OS"), Path(r"C:\Helm OS\state data"),
+                        kwargs.pop("sid", self.SID), kwargs.pop("config", SyncConfig()), **kwargs)
+
+    def test_xml_paths_arguments_identity_and_privilege(self):
+        xml = self.xml(config=SyncConfig(interval_days=2), at="23:15")
+        root = ET.fromstring(xml)
+        def value(tag):
+            return root.find(".//{" + NAMESPACE + "}" + tag).text
+        self.assertEqual(value("Command"), r"C:\Program Files\Python\python.exe")
+        self.assertIn('"C:\\Helm OS\\state data"', value("Arguments"))
+        self.assertIn("--interval-days 2", value("Arguments"))
+        self.assertEqual(value("WorkingDirectory"), r"C:\Helm OS")
+        self.assertEqual(value("UserId"), self.SID)
+        self.assertEqual(value("LogonType"), "InteractiveToken")
+        self.assertEqual(value("RunLevel"), "LeastPrivilege")
+        self.assertEqual(value("MultipleInstancesPolicy"), "IgnoreNew")
+        self.assertEqual(value("StartWhenAvailable"), "true")
+        self.assertEqual(value("WakeToRun"), "false")
+        self.assertEqual(value("ExecutionTimeLimit"), "PT15M")
+        self.assertNotIn(MARKER, xml)
+
+    def test_reject_system_other_service_accounts_relative_paths_and_invalid_time(self):
+        for sid in ("S-1-5-18", "S-1-5-19", "S-1-5-20", "SYSTEM", "someone"):
+            with self.assertRaises(ConnectorError):
+                self.xml(sid=sid)
+        for at in ("24:00", "9:00", "00:00; bad"):
+            with self.assertRaises(ConnectorError):
+                self.xml(at=at)
+        with self.assertRaises(ConnectorError):
+            task_xml(Path("python"), Path.cwd(), Path.cwd(), self.SID, SyncConfig())
+
+    def test_management_only_uses_fixed_commands_without_shell_or_password(self):
+        with patch("helmos.windows_tasks.subprocess.run") as command:
+            command.return_value = Mock(returncode=0, stdout="safe output")
+            for action in ("query", "last-run", "run", "disable", "remove"):
+                result = manage_task(action, state_dir=Path.cwd(), repository=Path.cwd(), config=SyncConfig())
+                self.assertEqual(result["action"], action)
+                arguments = command.call_args.args[0]
+                self.assertIn(TASK_NAME, arguments)
+                self.assertFalse(command.call_args.kwargs["shell"])
+                self.assertEqual(command.call_args.kwargs["timeout"], 30)
+                self.assertNotIn("/RP", arguments)
+            with self.assertRaises(ConnectorError):
+                manage_task("arbitrary", state_dir=Path.cwd(), repository=Path.cwd(), config=SyncConfig())
+
+    def test_install_uses_current_sid_absolute_interpreter_and_no_replace(self):
+        def execute(arguments, **kwargs):
+            if "/user" in arguments:
+                return Mock(returncode=0, stdout='"user","' + self.SID + '"')
+            self.assertIn("/Create", arguments)
+            self.assertNotIn("/F", arguments)
+            path = Path(arguments[-1])
+            xml = path.read_text(encoding="utf-16")
+            ET.fromstring(path.read_bytes())  # Declaration and on-disk encoding agree.
+            self.assertIn(str(Path(sys.executable).resolve()), xml)
+            self.assertIn(self.SID, xml)
+            return Mock(returncode=0, stdout="")
+        with patch("helmos.windows_tasks.subprocess.run", side_effect=execute) as command:
+            result = manage_task("install", state_dir=Path.cwd() / "space data",
+                                 repository=Path.cwd(), config=SyncConfig())
+        self.assertEqual(result["status"], "registered")
+        self.assertEqual(command.call_count, 2)
+
+    def test_scheduler_failure_is_safe(self):
+        with patch("helmos.windows_tasks.subprocess.run", side_effect=TimeoutError(MARKER)):
+            with self.assertRaises(ConnectorError) as caught:
+                manage_task("query", state_dir=Path.cwd(), repository=Path.cwd(), config=SyncConfig())
+        self.assertNotIn(MARKER, str(caught.exception))
+
+
+if __name__ == "__main__":
+    unittest.main()

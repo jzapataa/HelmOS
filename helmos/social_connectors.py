@@ -177,6 +177,9 @@ class SocialConnector:
         captured_at = captured_at.astimezone(timezone.utc)
         self._remaining = self.max_requests
         records, seen = [], set()
+        # Completed, validated publications remain available to the scheduled
+        # runner if a later network request fails. Strict imports stay atomic.
+        self.completed_records = records
         for post, metrics, published in self._fetch():
             post_id = _id(post.get("id"))
             if post_id in seen:

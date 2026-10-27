@@ -10,6 +10,7 @@ from pathlib import Path
 from .instagram_credentials import InstagramCredentials
 from .social_connectors import ConnectorError, EditorialMetadata, InstagramConnector, MetricMetadata
 from .social_import import SocialImportError, _persist_posts, list_observations, list_posts
+from .sync_lock import serialize_instagram
 
 
 def load_metadata(path: Path | None) -> dict[str, EditorialMetadata]:
@@ -32,12 +33,14 @@ def load_metadata(path: Path | None) -> dict[str, EditorialMetadata]:
         raise ConnectorError("invalid_metadata_file") from None
 
 
+@serialize_instagram
 def sync_instagram(state_dir: Path, *, api_version: str, expected_username: str,
                    metadata_path: Path | None = None, preview: bool = False,
                    page_size: int = 5, max_pages: int = 1, max_posts: int = 5,
                    max_requests: int = 100, timeout: float = 10,
                    deadline_seconds: float = 120, provider=None,
-                   captured_at: datetime | None = None) -> dict:
+                   captured_at: datetime | None = None,
+                   preserve_partial: bool = False) -> dict:
     for value, maximum in ((page_size, 100), (max_pages, 1000), (max_posts, 10000)):
         if type(value) is not int or not 1 <= value <= maximum:
             raise ConnectorError("invalid_collection_limit")
@@ -69,7 +72,20 @@ def sync_instagram(state_dir: Path, *, api_version: str, expected_username: str,
                                    page_size=page_size, max_pages=max_pages, max_posts=max_posts,
                                    allow_unclassified=True)
     capture = captured_at or datetime.now(timezone.utc)
-    records = connector.collect(metadata, captured_at=capture)
+    failure = None
+    try:
+        records = connector.collect(metadata, captured_at=capture)
+    except ConnectorError as error:
+        recoverable = error.code in {
+                "transport_failure", "provider_failure", "deadline_exceeded",
+                "request_budget_exceeded", "rate_limited", "authentication_required",
+                "instagram_permissions_required"} or (
+                    error.code == "http_error" and error.status is not None and error.status >= 500)
+        if not preserve_partial or not recoverable:
+            raise
+        records = getattr(connector, "completed_records", [])
+        failure = {"code": error.code, "status": error.status,
+                   "retry_after": error.retry_after}
     plan = _persist_posts(records, state_dir, precise_captures=True, dry_run=preview)
     discovered_ids = {post["post_id"] for post in records} | {
         item["post_id"] for item in connector.unclassified_posts}
@@ -79,7 +95,9 @@ def sync_instagram(state_dir: Path, *, api_version: str, expected_username: str,
         "credential": credential_status,
         "platform": "Instagram", "account_id": provider.account.account_id,
         "api_version": api_version, "captured_at": capture.astimezone(timezone.utc).isoformat(),
-        "preview": preview, "status": "partial" if connector.partial_errors else "succeeded",
+        "preview": preview, "status": "failed" if failure else (
+            "partial" if connector.partial_errors else "succeeded"),
+        "failure": failure,
         "posts_consulted": connector.consulted, "new_posts": len(discovered_ids) - existing,
         "existing_posts": existing, "posts_imported": 0 if preview else plan["imported"],
         "observations_saved": 0 if preview else planned,

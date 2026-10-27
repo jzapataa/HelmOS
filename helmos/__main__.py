@@ -13,6 +13,8 @@ from .social_import import list_posts
 from .social_connectors import ConnectorError
 from .instagram_sync import sync_instagram
 from .instagram_credentials import InstagramCredentials, KINDS, secure_input
+from .scheduled_instagram import SyncConfig, run_scheduled, sync_status
+from .windows_tasks import manage_task
 from .recommendation_evaluations import evaluate_recommendation, list_evaluations, read_evaluation
 from .social_history import evolution, latest, observations, publication, summarize_history
 from .recommendations import (associate_post, associated_posts, decide_recommendation,
@@ -40,6 +42,13 @@ def main(argv: list[str] | None = None) -> int:
     show.add_argument("identifier")
     social = commands.add_parser("social", help="Inspect local Social data and editorial follow-up")
     social_commands = social.add_subparsers(dest="social_command", required=True)
+    scheduled = social_commands.add_parser("scheduled-sync", help="DPAPI-only jorgebytes synchronization")
+    scheduled.add_argument("scheduled_action", choices=("run", "status", "task"))
+    scheduled.add_argument("task_action", nargs="?", choices=(
+        "install", "query", "last-run", "run", "disable", "remove"))
+    scheduled.add_argument("--at", default="09:00", help="Local daily task time HH:MM")
+    for key, value in vars(SyncConfig()).items():
+        scheduled.add_argument("--" + key.replace("_", "-"), type=type(value), default=value)
     credentials = social_commands.add_parser("credentials", help="Manage protected Instagram credentials")
     credentials.add_argument("platform", choices=("instagram",))
     credentials.add_argument("credential_action", choices=("import", "status", "check", "refresh", "preflight"))
@@ -94,6 +103,9 @@ def main(argv: list[str] | None = None) -> int:
         command = approval_commands.add_parser(name)
         command.add_argument("identifier")
     args = parser.parse_args(argv)
+    if args.command == "social" and args.social_command == "scheduled-sync":
+        if (args.scheduled_action == "task") != (args.task_action is not None):
+            parser.error("task requires a task action; other commands do not accept one")
     if (args.command == "social" and args.social_command == "credentials"
             and args.credential_action != "import"
             and (args.kind != "unknown" or args.issued_at or args.expires_at)):
@@ -106,7 +118,18 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "show":
             record = read_execution(args.identifier, args.state_dir)
         elif args.command == "social":
-            if args.social_command == "credentials":
+            if args.social_command == "scheduled-sync":
+                config = SyncConfig(**{key: getattr(args, key) for key in vars(SyncConfig())})
+                if args.scheduled_action == "run":
+                    record, code = run_scheduled(args.state_dir, config)
+                    print(json.dumps(record, ensure_ascii=True, indent=2))
+                    return code
+                if args.scheduled_action == "status":
+                    record = sync_status(args.state_dir)
+                else:
+                    record = manage_task(args.task_action, state_dir=args.state_dir,
+                                         repository=REPOSITORY_ROOT, config=config, at=args.at)
+            elif args.social_command == "credentials":
                 manager = InstagramCredentials(api_version=args.api_version,
                                                expected_username=args.expected_username)
                 if args.credential_action == "import":

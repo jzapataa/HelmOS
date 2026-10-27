@@ -53,12 +53,14 @@ def secure_input() -> str:
 
 class InstagramCredentials:
     def __init__(self, *, api_version: str, expected_username: str,
-                 store: CredentialStore | None = None, clock=utc_now, **http_options):
+                 store: CredentialStore | None = None, clock=utc_now,
+                 dpapi_only: bool = False, **http_options):
         self.api_version = api_version
         self.expected_username = expected_username
         self._store = store
         self.clock = clock
         self.http_options = http_options
+        self.dpapi_only = dpapi_only
 
     @property
     def store(self):
@@ -69,7 +71,7 @@ class InstagramCredentials:
     def _load(self):
         # Explicit process environment preserves I4-A2 compatibility; never update
         # a store that would be shadowed by this environment on the next execution.
-        token = os.environ.get("HELMOS_INSTAGRAM_ACCESS_TOKEN")
+        token = None if self.dpapi_only else os.environ.get("HELMOS_INSTAGRAM_ACCESS_TOKEN")
         if token:
             validate_token(token)
             return {"token": token, "kind": "unknown"}, "environment"
@@ -164,7 +166,7 @@ class InstagramCredentials:
 
     def prepare(self, *, requested=False, refresh=True):
         # Read environment without creating a store or lock (legacy read-only path).
-        if os.environ.get("HELMOS_INSTAGRAM_ACCESS_TOKEN"):
+        if not self.dpapi_only and os.environ.get("HELMOS_INSTAGRAM_ACCESS_TOKEN"):
             record, source = self._load()
             provider = self._provider(record)
             record.update(account_id=provider.account.account_id, username=provider.username,
