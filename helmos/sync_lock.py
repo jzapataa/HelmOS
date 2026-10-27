@@ -40,7 +40,13 @@ def serialize_instagram(function):
     @wraps(function)
     def wrapped(state_dir: Path, **options):
         target = state_dir.resolve()
+        diagnostics = options.get("diagnostics")
+        if diagnostics is not None:
+            diagnostics.stage("data_lock")
         # Sidecar does not create Social state on a preview or failed read.
         with execution_lock(target.parent, f".{target.name}.instagram.lock"):
-            return function(state_dir, **options)
+            result = function(state_dir, **options)
+            if diagnostics is not None:
+                diagnostics.stage("data_unlock")
+            return result
     return wrapped

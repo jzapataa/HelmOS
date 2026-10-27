@@ -19,7 +19,8 @@ class InstagramHTTPProvider:
 
     def __init__(self, *, api_version: str, expected_username: str,
                  timeout: float = 10, deadline_seconds: float = 120,
-                 max_requests: int = 100, token: str | None = None):
+                 max_requests: int = 100, token: str | None = None, diagnostics=None):
+        self.diagnostics = diagnostics
         if not re.fullmatch(r"v[0-9]{2}\.0", api_version):
             raise ConnectorError("invalid_api_version")
         if not isinstance(expected_username, str) or not re.fullmatch(r"[A-Za-z0-9_.]{1,30}", expected_username):
@@ -103,6 +104,13 @@ class InstagramHTTPProvider:
 
     def _get(self, path: str, params: dict) -> Response:
         refresh = path == "/refresh_access_token"
+        if self.diagnostics is not None:
+            # Only local operation labels; never paths, cursors, fields or tokens.
+            operation = "refresh" if refresh else (
+                "metrics" if path.endswith("/insights") else (
+                    "listing" if path.endswith("/media") else "identity"))
+            self.diagnostics.context.update(operation=operation, requests_made=self.requests_made)
+            self.diagnostics.context.pop("transport", None)
         if refresh and params != {"grant_type": "ig_refresh_token"}:
             raise ConnectorError("instagram_request_not_allowed")
         if self._remaining <= 0:
@@ -112,6 +120,8 @@ class InstagramHTTPProvider:
             raise ConnectorError("deadline_exceeded")
         self._remaining -= 1
         self.requests_made += 1
+        if self.diagnostics is not None:
+            self.diagnostics.context["requests_made"] = self.requests_made
         connection = None
         failure = None
         try:
@@ -156,13 +166,17 @@ class InstagramHTTPProvider:
             result = Response(response.status, payload, headers)
         except ConnectorError as error:
             failure = ConnectorError(error.code, status=error.status, retry_after=error.retry_after)
-        except Exception:
+        except Exception as error:
+            if self.diagnostics is not None:
+                self.diagnostics.context["transport"] = self.diagnostics.failure(error)["category"]
             failure = ConnectorError("transport_failure")
         finally:
             if connection is not None:
                 try:
                     connection.close()
-                except Exception:
+                except Exception as error:
+                    if self.diagnostics is not None:
+                        self.diagnostics.context["transport"] = self.diagnostics.failure(error)["category"]
                     failure = ConnectorError("transport_failure")
             # Do not retain a request target in the connection/buffer on failure.
             connection = None

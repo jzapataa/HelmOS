@@ -31,6 +31,30 @@ class SocialImportError(ValueError):
     """Invalid CSV or conflict with an already saved publication."""
 
 
+def _publication_date_evidence(post: dict) -> dict:
+    """Allowlisted conflict evidence, without copying CSV rows or remote payloads."""
+    value = post.get("published_at")
+    try:
+        if not isinstance(value, str):
+            raise SocialImportError("Invalid diagnostic date")
+        _day(value, "published_at", 0)
+    except SocialImportError:
+        value = None
+    observation = post.get("initial_observation") or {}
+    provenance = observation.get("provenance") or {}
+    row = post.get("source_row") or {}
+    source = "unknown"
+    revision = post.get("date_reconciliation", {})
+    if (revision.get("source") == "official_api"
+            and revision.get("timestamp", "")[:10] == value):
+        source = "official_api"
+    elif provenance.get("source") == "official_api":
+        source = "official_api"
+    elif value is not None and row.get("published_at") == value:
+        source = "csv"
+    return {"value": value, "source": source}
+
+
 def _post_path(state_dir: Path, platform: str, post_id: str) -> Path:
     digest = hashlib.sha256(f"{platform}\0{post_id}".encode("utf-8")).hexdigest()
     return state_dir / "social" / "posts" / f"{digest}.json"
@@ -225,6 +249,8 @@ def _parse_csv(path: Path) -> list[dict[str, object]]:
 
 
 def list_posts(state_dir: Path, platform: str | None = None) -> list[dict[str, object]]:
+    if (state_dir / "social" / ".i4-b2-date-transaction.json").exists():
+        raise SocialImportError("Interrupted date reconciliation; explicit recovery required")
     if platform is not None and platform not in PLATFORMS:
         raise SocialImportError(f"Unsupported platform: {platform}")
     directory = state_dir / "social" / "posts"
@@ -255,34 +281,63 @@ def summarize(posts: list[dict[str, object]]) -> dict[str, object]:
 
 
 def import_csv(path: Path, state_dir: Path) -> dict[str, object]:
-    posts = _parse_csv(path)
-    return _persist_posts(posts, state_dir, str(path))
+    # CSV imports must not race the reviewed Instagram reconciliation or sync.
+    from .sync_lock import execution_lock
+    target = state_dir.resolve()
+    with execution_lock(target.parent, f".{target.name}.instagram.lock"):
+        posts = _parse_csv(path)
+        return _persist_posts(posts, state_dir, str(path))
 
 
 def _persist_posts(posts: list[dict[str, object]], state_dir: Path,
                    source_csv: str | None = None, *, precise_captures: bool = False,
-                   dry_run: bool = False) -> dict[str, object]:
+                   dry_run: bool = False, diagnostics=None) -> dict[str, object]:
     """Shared single-writer persistence for validated CSV and connector records.
 
     Validate the complete batch before calling. Preflight conflicts before writes;
     filesystem failures can leave a partial batch, recoverable by idempotent replay.
     """
+    if (state_dir / "social" / ".i4-b2-date-transaction.json").exists():
+        raise SocialImportError("Interrupted date reconciliation; explicit recovery required")
+
+    def progress(step, index=None, **details):
+        # Context contains only allowlisted evidence, never raw rows or payloads.
+        if diagnostics is not None:
+            diagnostics.context.update(persistence_step=step, **details)
+            if index is not None:
+                diagnostics.context["persistence_post_index"] = index
+
+    progress("directory_validation")
     directory = state_dir / "social" / "posts"
     if directory.is_symlink() or directory.parent.is_symlink():
         raise SocialImportError("Publication directory cannot be a symbolic link")
     already_present = 0
-    new_posts: list[dict[str, object]] = []
-    additions: list[tuple[Path, dict[str, object]]] = []
-    for post in posts:
+    new_posts: list[tuple[dict[str, object], int]] = []
+    additions: list[tuple[Path, dict[str, object], int]] = []
+    for index, post in enumerate(posts, start=1):
+        progress("publication_read", index)
         saved_path = _post_path(state_dir, post["platform"], post["post_id"])
         if saved_path.exists() or saved_path.is_symlink():
             saved = _read_post(saved_path)
-            if any(saved[key] != post[key] for key in ("platform", "post_id", "published_at", "format", "topic")):
+            conflicting_fields = [key for key in ("platform", "post_id", "published_at", "format", "topic")
+                                  if saved[key] != post[key]]
+            if conflicting_fields:
+                evidence = {}
+                if "published_at" in conflicting_fields:
+                    evidence["persistence_published_at"] = {
+                        "historical": _publication_date_evidence(saved),
+                        "incoming": _publication_date_evidence(post),
+                    }
+                progress("publication_metadata_conflict",
+                         persistence_publication_ref=saved_path.stem,
+                         persistence_conflicting_fields=conflicting_fields, **evidence)
                 raise SocialImportError(
                     f"Existing publication metadata differs: {post['platform']}/{post['post_id']}"
                 )
             observation = post["initial_observation"]
+            progress("observations_read")
             current = list_observations(state_dir, saved)
+            progress("observation_validation")
             incoming = observation.get("provenance")
             if incoming:
                 for item in current:
@@ -290,12 +345,14 @@ def _persist_posts(posts: list[dict[str, object]], state_dir: Path,
                     if origin and (origin.get("account_id") != incoming.get("account_id") or (
                             origin.get("editorial_piece_id")
                             and origin["editorial_piece_id"] != incoming["editorial_piece_id"])):
+                        progress("connector_identity_conflict")
                         raise SocialImportError("Connector account or editorial identity differs")
             comparable = current
             if precise_captures:
                 same_capture = [item for item in current if _api_capture(item) and
                                 _api_capture(item) == _api_capture(observation)]
                 if same_capture and not all(_same_measurement(item, observation) for item in same_capture):
+                    progress("api_capture_conflict")
                     raise SocialImportError("Conflicting metrics for the same API capture")
                 comparable = same_capture or [max(current, key=observation_sort_key)]
             if any(_same_measurement(item, observation) for item in comparable):
@@ -306,6 +363,7 @@ def _persist_posts(posts: list[dict[str, object]], state_dir: Path,
                 _api_capture(item) and _api_capture(item) != _api_capture(observation)
                 for item in same_day)
             if observation["observed_at"] is None or (same_day and not precise):
+                progress("observation_date_conflict")
                 raise SocialImportError(
                     f"Ambiguous observation date or period: {post['platform']}/{post['post_id']}"
                 )
@@ -315,14 +373,17 @@ def _persist_posts(posts: list[dict[str, object]], state_dir: Path,
                  **({"captured_at": _api_capture(observation)} if precise_captures else {})},
                 sort_keys=True, ensure_ascii=False,
             ).encode("utf-8")).hexdigest()
-            additions.append((directory / f"{digest}.json", observation))
+            additions.append((directory / f"{digest}.json", observation, index))
         else:
-            new_posts.append(post)
+            new_posts.append((post, index))
     if not dry_run:
-        for post in new_posts:
+        for post, index in new_posts:
+            progress("publication_write", index)
             _save_post(_post_path(state_dir, post["platform"], post["post_id"]), post)
-        for observation_path, observation in additions:
+        for observation_path, observation, index in additions:
+            progress("observation_write", index)
             _save_post(observation_path, observation)
+    progress("summary")
     return {
         "source_csv": source_csv, "rows": len(posts),
         "imported": len(new_posts),

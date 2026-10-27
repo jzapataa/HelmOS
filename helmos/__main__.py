@@ -62,7 +62,10 @@ def main(argv: list[str] | None = None) -> int:
     sync.add_argument("--api-version", required=True, help="Explicit Graph version verified in Meta")
     sync.add_argument("--expected-username", required=True, help="Authenticated account to verify")
     sync.add_argument("--metadata", type=Path, help="JSON editorial classifications by official post ID")
-    sync.add_argument("--preview", action="store_true", help="Read API and preflight without writing")
+    sync_mode = sync.add_mutually_exclusive_group()
+    sync_mode.add_argument("--preview", action="store_true", help="Read API and preflight without writing")
+    sync_mode.add_argument("--prevalidate-metadata", action="store_true",
+                      help="Compare listed metadata without Insights or Social writes")
     sync.add_argument("--page-size", type=int, default=5)
     sync.add_argument("--max-pages", type=int, default=1)
     sync.add_argument("--max-posts", type=int, default=5)
@@ -152,7 +155,8 @@ def main(argv: list[str] | None = None) -> int:
                     args.state_dir, api_version=args.api_version, expected_username=args.expected_username,
                     metadata_path=args.metadata, preview=args.preview, page_size=args.page_size,
                     max_pages=args.max_pages, max_posts=args.max_posts, max_requests=args.max_requests,
-                    timeout=args.timeout, deadline_seconds=args.deadline_seconds)
+                    timeout=args.timeout, deadline_seconds=args.deadline_seconds,
+                    prevalidate_metadata=args.prevalidate_metadata)
             elif args.social_command == "recommendations":
                 name = args.recommendation_command
                 if name == "list":
@@ -214,6 +218,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command in ("run", "show"):
         return 0 if record["status"] == "succeeded" else 1
     if args.command == "social" and args.social_command == "sync":
+        if args.prevalidate_metadata:
+            return 2 if record["conflicts"] else (1 if record["bounded_listing"] else 0)
         return 1 if record["partial_errors"] else 0
     if (args.command == "social" and args.social_command == "credentials"
             and args.credential_action == "preflight"):

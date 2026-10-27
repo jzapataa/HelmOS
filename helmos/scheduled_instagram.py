@@ -6,6 +6,7 @@ import json
 import math
 import os
 import re
+import sys
 import tempfile
 import uuid
 from dataclasses import asdict, dataclass
@@ -16,6 +17,7 @@ from .instagram_credentials import InstagramCredentials
 from .instagram_sync import sync_instagram
 from .social_connectors import ConnectorError
 from .sync_lock import execution_lock
+from .sync_diagnostics import SyncDiagnostics
 
 
 @dataclass(frozen=True)
@@ -76,10 +78,15 @@ def sync_status(state_dir: Path) -> dict:
 
 
 def run_scheduled(state_dir: Path, config: SyncConfig) -> tuple[dict, int]:
-    state_dir = state_dir.resolve()
-    directory = state_dir / "social" / "scheduled_instagram"
+    diagnostics = SyncDiagnostics()
+    record = None
     try:
+        diagnostics.stage("state_directory")
+        state_dir = state_dir.resolve()
+        directory = state_dir / "social" / "scheduled_instagram"
+        diagnostics.stage("execution_lock")
         with execution_lock(directory):
+            diagnostics.stage("journal_recovery")
             # No other scheduled writer can still own a 'running' record.
             for path in (directory / "runs").glob("*.json"):
                 previous = json.loads(path.read_text(encoding="utf-8"))
@@ -92,16 +99,25 @@ def run_scheduled(state_dir: Path, config: SyncConfig) -> tuple[dict, int]:
             record = {"id": identifier, "username": "jorgebytes", "started_at": now(),
                       "finished_at": None, "status": "running", "config": asdict(config),
                       "retry_policy": "next_scheduled_run", "result": None}
+            record["runtime"] = {
+                "cwd_matches_repository": Path.cwd().resolve() == Path(__file__).resolve().parent.parent,
+                "state_path_absolute": state_dir.is_absolute(),
+                "localappdata_present": bool(os.environ.get("LOCALAPPDATA")),
+                "python_version": ".".join(str(v) for v in sys.version_info[:3]),
+            }
+            diagnostics.stage("journal_start")
             write_record(path, record)
             try:
                 options = asdict(config)
                 options.pop("interval_days")
                 provider, _ = InstagramCredentials(
-                    expected_username="jorgebytes", dpapi_only=True,
+                    expected_username="jorgebytes", dpapi_only=True, diagnostics=diagnostics,
                     **{key: options[key] for key in (
                         "api_version", "timeout", "deadline_seconds", "max_requests")}).prepare()
                 result = sync_instagram(state_dir, expected_username="jorgebytes",
-                                        provider=provider, preserve_partial=True, **options)
+                                        provider=provider, preserve_partial=True,
+                                        diagnostics=diagnostics, **options)
+                diagnostics.stage("result")
                 # Only allowlisted counters and safe diagnostics enter the run journal.
                 record["result"] = {key: result[key] for key in (
                     "captured_at", "posts_consulted", "new_posts", "existing_posts",
@@ -115,26 +131,43 @@ def run_scheduled(state_dir: Path, config: SyncConfig) -> tuple[dict, int]:
                 code = 2 if record["status"] == "failed" else (
                     1 if record["status"] == "partial" else 0)
                 error = failure["code"] if failure else None
+                if failure:
+                    record["diagnostic"] = dict(diagnostics.context,
+                                                code=error, stage="collection")
+                elif code == 1:
+                    record["diagnostic"] = dict(diagnostics.context,
+                                                code="incomplete_collection", stage="collection")
             except ConnectorError as exc:
                 # Codes originate only from local safe boundaries; no remote messages.
                 error = exc.code
                 record.update(status="failed", error=error,
                               retry_after=exc.retry_after, http_status=exc.status)
                 code = 3 if error == "scheduled_sync_busy" else 2
+                record["diagnostic"] = diagnostics.failure(exc)
                 if code == 3:
                     record["status"] = "busy"
-            except Exception:
+            except Exception as exc:
                 error = "scheduled_sync_failed"
                 record.update(status="failed", error=error)
+                record["diagnostic"] = diagnostics.failure(exc)
                 code = 2
             record.update(finished_at=now(), exit_code=code,
                           reauthorization_required=error in {
                               "authentication_required", "instagram_token_required",
                               "instagram_token_expired_reauthorize", "instagram_permissions_required"})
+            diagnostics.stage("journal_finish")
             write_record(path, record)
+            diagnostics.stage("execution_unlock")
             return record, code
     except ConnectorError as exc:
-        return {"status": "busy", "error": exc.code}, 3
-    except Exception:
+        return {"status": "busy", "error": exc.code,
+                "diagnostic": diagnostics.failure(exc)}, 3
+    except Exception as exc:
         # A persistence failure must never become a success or expose file contents.
-        return {"status": "failed", "error": "scheduled_record_failed"}, 2
+        failure = {"status": "failed", "error": "scheduled_record_failed",
+                   "diagnostic": diagnostics.failure(exc)}
+        if record is not None:
+            failure["id"] = record["id"]
+            if "diagnostic" in record:
+                failure["run_diagnostic"] = record["diagnostic"]
+        return failure, 2

@@ -1,3 +1,11 @@
 __pycache__/
 *.py[cod]
 var/
+# Local runtime locks and private operational artifacts
+.*.instagram.lock
+.i4-b2-review/
+*.dpapi
+.env
+.env.*
+backups/
+*.bak

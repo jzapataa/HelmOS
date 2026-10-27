@@ -228,8 +228,13 @@ class SocialConnector:
     def import_snapshot(self, state_dir: Path, metadata: Mapping[str, EditorialMetadata], *,
                         captured_at: datetime) -> dict:
         """Single writer only; reuse Social's preflight, deduplication and history."""
+        if getattr(self, "metadata_only", False):
+            raise ConnectorError("metadata_only_cannot_import")
         records = self.collect(metadata, captured_at=captured_at)
-        return _persist_posts(records, state_dir)
+        from .sync_lock import execution_lock
+        target = state_dir.resolve()
+        with execution_lock(target.parent, f".{target.name}.instagram.lock"):
+            return _persist_posts(records, state_dir)
 
 
 class TikTokConnector(SocialConnector):
@@ -275,7 +280,7 @@ class InstagramConnector(SocialConnector):
     def __init__(self, provider: AuthorizedProvider, *, api_version: str,
                  max_requests: int = 100, partial_insights: bool = False,
                  page_size: int = 25, max_pages: int = 10, max_posts: int = 100,
-                 allow_unclassified: bool = False):
+                 allow_unclassified: bool = False, metadata_only: bool = False):
         super().__init__(provider, max_requests=max_requests)
         # Choose a supported Graph version at app registration; never silently use latest.
         if not isinstance(api_version, str) or not re.fullmatch(r"v[0-9]{2}\.0", api_version):
@@ -287,6 +292,10 @@ class InstagramConnector(SocialConnector):
             if type(value) is not int or not 1 <= value <= maximum:
                 raise ConnectorError("invalid_collection_limit")
         self.partial_insights = partial_insights
+        if metadata_only and not partial_insights:
+            raise ConnectorError("invalid_metadata_only_mode")
+        self.metadata_only = metadata_only
+        self.publication_times = {}
         self.allow_unclassified = allow_unclassified
         self.page_size, self.max_pages, self.max_posts = page_size, max_pages, max_posts
         self.partial_errors = []
@@ -300,6 +309,7 @@ class InstagramConnector(SocialConnector):
         self.unclassified_posts = []
         self.truncated = False
         self.consulted = self.duplicates = 0
+        self.publication_times = {}
         return super().collect(metadata, captured_at=captured_at)
 
     def _individual_insights(self, post_id, product):
@@ -308,6 +318,7 @@ class InstagramConnector(SocialConnector):
         allowed = {"FEED": tuple(self.metric_mapping), "REELS": tuple(self.metric_mapping)}
         metrics = {}
         for name in allowed[product]:
+            self._diagnose_collection("metrics", metric=name)
             try:
                 payload = self._request("GET", f"/{self.api_version}/{post_id}/insights",
                                         params={"metric": name})
@@ -334,10 +345,18 @@ class InstagramConnector(SocialConnector):
                                             "code": error.code, "status": error.status})
         return metrics
 
+    def _diagnose_collection(self, step, **counts):
+        diagnostics = getattr(self.provider, "diagnostics", None)
+        if diagnostics is not None:
+            if step != "metrics":
+                diagnostics.context.pop("metric", None)
+            diagnostics.context.update(collection_step=step, **counts)
+
     def _fetch(self):
         cursor, seen = None, set()
         pages, media_seen = 0, {}
         while True:
+            self._diagnose_collection("listing", page=pages + 1)
             params = {"fields": "id,timestamp,media_type,media_product_type", "limit": self.page_size}
             if cursor is not None:
                 params["after"] = cursor
@@ -356,6 +375,7 @@ class InstagramConnector(SocialConnector):
                     continue
                 media_seen[post_id] = media
                 self.consulted += 1
+                self._diagnose_collection("publication", posts_consulted=self.consulted)
                 # Stories, live and carousel children require different contracts.
                 supported = {"FEED": ("IMAGE", "VIDEO", "CAROUSEL_ALBUM"), "REELS": ("VIDEO",)}
                 product = media.get("media_product_type")
@@ -368,8 +388,10 @@ class InstagramConnector(SocialConnector):
                     published = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
                 except (KeyError, ValueError):
                     raise ConnectorError("invalid_publication_date") from None
+                self.publication_times[post_id] = published
                 if self.partial_insights:
-                    metrics = self._individual_insights(post_id, media["media_product_type"])
+                    metrics = {} if self.metadata_only else self._individual_insights(
+                        post_id, media["media_product_type"])
                     yield media, metrics, published
                     if len(media_seen) >= self.max_posts:
                         self.truncated = index + 1 < len(media_items) or bool(
@@ -394,6 +416,7 @@ class InstagramConnector(SocialConnector):
                     if values[0]["value"] is not None:
                         metrics[local] = _count(values[0]["value"])
                 yield media, metrics, published
+            self._diagnose_collection("pagination")
             paging = _object(payload.get("paging", {}))
             if not paging.get("next"):
                 return

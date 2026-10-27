@@ -54,13 +54,18 @@ def secure_input() -> str:
 class InstagramCredentials:
     def __init__(self, *, api_version: str, expected_username: str,
                  store: CredentialStore | None = None, clock=utc_now,
-                 dpapi_only: bool = False, **http_options):
+                 dpapi_only: bool = False, diagnostics=None, **http_options):
         self.api_version = api_version
         self.expected_username = expected_username
         self._store = store
         self.clock = clock
         self.http_options = http_options
         self.dpapi_only = dpapi_only
+        self.diagnostics = diagnostics
+
+    def _stage(self, name):
+        if self.diagnostics is not None:
+            self.diagnostics.stage(name)
 
     @property
     def store(self):
@@ -94,7 +99,7 @@ class InstagramCredentials:
             raise ConnectorError("instagram_token_expired_reauthorize")
         provider = InstagramHTTPProvider(
             api_version=self.api_version, expected_username=self.expected_username,
-            token=record["token"], **self.http_options)
+            token=record["token"], diagnostics=self.diagnostics, **self.http_options)
         if record.get("account_id") and record["account_id"] != provider.account.account_id:
             raise ConnectorError("instagram_account_mismatch")
         return provider
@@ -164,7 +169,7 @@ class InstagramCredentials:
         result["environment_override"] = bool(os.environ.get("HELMOS_INSTAGRAM_ACCESS_TOKEN"))
         return result
 
-    def prepare(self, *, requested=False, refresh=True):
+    def prepare(self, *, requested=False, refresh=True, read_only=False):
         # Read environment without creating a store or lock (legacy read-only path).
         if not self.dpapi_only and os.environ.get("HELMOS_INSTAGRAM_ACCESS_TOKEN"):
             record, source = self._load()
@@ -172,12 +177,16 @@ class InstagramCredentials:
             record.update(account_id=provider.account.account_id, username=provider.username,
                           checked_at=self.clock().isoformat())
             return provider, self._summary(record, source, action="checked", live=True)
+        self._stage("credentials_lock")
         with self.store.transaction():
+            self._stage("credentials_load")
             record, source = self._load()
+            self._stage("credentials_identity")
             provider = self._provider(record)
             updated = dict(record, checked_at=self.clock().isoformat())
             action = "checked"
-            if refresh and self._reason(record, source, requested=requested) == "due":
+            if refresh and not read_only and self._reason(record, source, requested=requested) == "due":
+                self._stage("credentials_refresh")
                 started = self.clock()
                 payload = provider.refresh_token()
                 new_token, lifetime = payload.get("access_token"), payload.get("expires_in")
@@ -194,7 +203,10 @@ class InstagramCredentials:
                                expires_at=(started + timedelta(seconds=lifetime)).isoformat(),
                                expiry_source="meta_refresh", checked_at=completed)
                 action = "refreshed"
-            self.store.save(updated)
+            self._stage("credentials_save")
+            if not read_only:
+                self.store.save(updated)
+            self._stage("credentials_unlock")
         return provider, self._summary(updated, source, action=action, live=True)
 
     def check(self):

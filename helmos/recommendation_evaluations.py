@@ -117,14 +117,23 @@ def evaluate_recommendation(identifier: str, state_dir: Path) -> dict[str, objec
     if not recommendation["associated_posts"]:
         raise ValueError("Recommendation has no associated publications")
     results = []
+    date_revisions = []
     for reference in sorted(recommendation["associated_posts"],
                             key=lambda item: (item["platform"], item["post_id"])):
         post = publication(state_dir, reference["platform"], reference["post_id"])
         results.append(_performance(post, observations(state_dir, post)))
+        revision = post.get("date_reconciliation")
+        if revision:
+            date_revisions.append({"platform": post["platform"], "post_id": post["post_id"],
+                                   "published_at": post["published_at"],
+                                   "operation": revision["operation"]})
     identity = {"method": METHOD, "recommendation_id": identifier,
                 "publications": [{"platform": item["platform"], "post_id": item["post_id"],
                                   "observations": sorted(obs["ref"] for obs in item["observations"])}
                                  for item in results]}
+    # Preserve every existing ID until an explicitly reconciled publication is used.
+    if date_revisions:
+        identity["date_revisions"] = date_revisions
     evaluation_id = _digest(identity)
     path = _path(evaluation_id, state_dir)
     if path.exists():

@@ -1,6 +1,6 @@
 # HelmOS
 
-I4-B2 solicitado: [sincronización programable de Instagram, registros y gestión de Task Scheduler](docs/I4_B2_SCHEDULED_SYNC.md). Instalación explícita pendiente; ninguna tarea activada durante el desarrollo.
+I4-B2: [desarrollo cerrado con incidencia operativa pendiente](docs/I4_B2_CLOSURE.md). Sincronización manual comprobada; sincronización diaria sin validación completa. Tarea instalada y deshabilitada.
 
 I4-B1 solicitado: [almacén cifrado de credenciales Instagram, renovación, CLI y ensayo controlado](docs/I4_B1_INSTAGRAM_CREDENTIALS.md). Contrato oficial de renovación reconfirmado; renovación real controlada pendiente.
 
