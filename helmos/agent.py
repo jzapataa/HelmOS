@@ -133,7 +133,10 @@ def run_agent(task: str, state_dir: Path, context_name: str, context_text: str) 
     return run_structured(prompt, state_dir, RESULT_SCHEMA)
 
 
-def run_structured(prompt: str, state_dir: Path, schema: dict[str, object]) -> dict[str, object]:
+def run_structured(
+    prompt: str, state_dir: Path, schema: dict[str, object], *,
+    working_directory: Path | None = None, timeout_seconds: float = TIMEOUT_SECONDS,
+) -> dict[str, object]:
     """Run the existing bounded Codex transport with a caller-owned JSON schema."""
     executable = _codex_executable()
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -156,7 +159,8 @@ def run_structured(prompt: str, state_dir: Path, schema: dict[str, object]) -> d
             "--config", "approval_policy=never",
             "--model", MODEL, "--config", f"model_reasoning_effort={REASONING_EFFORT}",
             "--json", "--output-schema", str(schema_path),
-            "--output-last-message", str(message_path), "--cd", str(Path(__file__).resolve().parent.parent), "-",
+            "--output-last-message", str(message_path), "--cd",
+            str(working_directory or Path(__file__).resolve().parent.parent), "-",
         ]
         try:
             with events_path.open("wb") as events, prompt_path.open("rb") as prompt_file:
@@ -164,13 +168,13 @@ def run_structured(prompt: str, state_dir: Path, schema: dict[str, object]) -> d
                     command, stdin=prompt_file, stdout=events,
                     stderr=subprocess.DEVNULL, shell=False,
                 )
-                deadline = time.monotonic() + TIMEOUT_SECONDS
+                deadline = time.monotonic() + timeout_seconds
                 try:
                     while process.poll() is None:
                         if events_path.stat().st_size > MAX_EVENTS_BYTES:
                             raise AgentExecutionError("Codex output exceeded its size limit")
                         if time.monotonic() >= deadline:
-                            raise AgentExecutionError(f"Codex exceeded {TIMEOUT_SECONDS} seconds")
+                            raise AgentExecutionError(f"Codex exceeded {timeout_seconds} seconds")
                         try:
                             process.wait(timeout=0.25)
                         except subprocess.TimeoutExpired:

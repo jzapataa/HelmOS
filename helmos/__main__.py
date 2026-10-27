@@ -9,6 +9,8 @@ from pathlib import Path
 
 from .approvals import ALLOWED_ACTIONS, create_proposal, decide_proposal, list_proposals, read_proposal
 from .core import REPOSITORY_ROOT, execute, read_execution
+from .agent import AgentExecutionError
+from .devteam_runtime import EnvironmentBlocked
 from .social_import import list_posts
 from .social_connectors import ConnectorError
 from .instagram_sync import sync_instagram
@@ -30,6 +32,20 @@ def main(argv: list[str] | None = None) -> int:
         help="Local directory for execution records (default: ./var)",
     )
     commands = parser.add_subparsers(dest="command", required=True)
+    development = commands.add_parser("devteam", help="D2 fictional Python development circuit")
+    development_commands = development.add_subparsers(dest="devteam_command", required=True)
+    development_start = development_commands.add_parser("start")
+    development_start.add_argument("--workspace", type=Path, required=True)
+    development_start.add_argument("--request", required=True)
+    development_start.add_argument("--authorize", action="store_true")
+    development_start.add_argument("--fictional", action="store_true")
+    development_start.add_argument("--max-calls", type=int, default=20)
+    development_start.add_argument("--max-repairs", type=int, default=3)
+    development_start.add_argument("--max-seconds", type=int, default=1800)
+    development_start.add_argument("--max-tokens", type=int, default=100_000)
+    for name in ("show", "resume"):
+        development_commands.add_parser(name).add_argument("identifier")
+    development_commands.add_parser("probe")
     run = commands.add_parser("run", help="Execute a supported local operation")
     run.add_argument("operation", help="Supported: core.status, social.sample, social.import, social.analyze, core.agent")
     run.add_argument("--csv", type=Path, help="CSV input for social.sample or social.import")
@@ -115,7 +131,24 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--kind, --issued-at and --expires-at apply only to credentials import")
 
     try:
-        if args.command == "run":
+        if args.command == "devteam":
+            from .devteam import Budget, read_project, resume_project, start_project
+            from .devteam_runtime import probe_isolation
+            if args.devteam_command == "start":
+                record = start_project(
+                    args.workspace, args.request, args.state_dir, authorized=args.authorize,
+                    fictional=args.fictional, budget=Budget(calls=args.max_calls, repairs=args.max_repairs,
+                                                          seconds=args.max_seconds, tokens=args.max_tokens))
+            elif args.devteam_command == "show":
+                record = read_project(args.state_dir, args.identifier)
+            elif args.devteam_command == "resume":
+                record = resume_project(args.state_dir, args.identifier)
+            else:
+                args.state_dir.mkdir(parents=True, exist_ok=True)
+                record = probe_isolation(args.state_dir.resolve())
+            print(json.dumps(record, ensure_ascii=True, indent=2))
+            return 0 if record.get("state") == "ready_for_acceptance" or record.get("passed") else 1
+        elif args.command == "run":
             record = execute(args.operation, args.state_dir, args.csv, args.task, args.context,
                              args.platform, args.from_date, args.to_date)
         elif args.command == "show":
@@ -210,7 +243,7 @@ def main(argv: list[str] | None = None) -> int:
                               "authentication_required", "instagram_token_expired_reauthorize",
                               "instagram_permissions_required"}}), file=sys.stderr)
         return 2
-    except (ValueError, OSError, json.JSONDecodeError) as error:
+    except (ValueError, OSError, json.JSONDecodeError, EnvironmentBlocked, AgentExecutionError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 2
 

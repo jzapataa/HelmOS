@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-27",
+  "closure": "technical_ready_human_acceptance_pending",
+  "automated_suite": {
+    "command": "python -m unittest discover -s tests -v",
+    "tests": 253,
+    "result": "OK",
+    "duration_seconds": 31.41,
+    "provenance": "Observed final D2 run reported before closure; retained summary, raw unittest transcript not captured in a repository file.",
+    "rerun_at_closure": false,
+    "reason": "No production or test source changes during closure; only documentation and evidence integrity checks."
+  },
+  "demo": {
+    "project_id": "00824e89-76b3-4c4c-88b8-3fe90cd4829f",
+    "state": "ready_for_acceptance",
+    "repairs": 1,
+    "calls": 6,
+    "tokens_observed": 95340,
+    "initial_test_counts": {
+      "tests": 13,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0
+    },
+    "final_test_counts": {
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "isolation_checks": {
+      "inside_write": true,
+      "outside_read_denied": true,
+      "outside_write_denied": true,
+      "child_inside_read": true,
+      "child_read_denied": true,
+      "child_write_denied": true,
+      "network_denied": true,
+      "tree_termination": true
+    },
+    "snapshot_sha256": "d522be16a6e3bf076b8aaf227172ed28496ce02b75ec9de7168f20579e8748e3",
+    "human_review_id": "e52e3860-6972-4107-912f-ce886f365f39",
+    "human_review_status": "pending"
+  },
+  "evidence_sha256": {
+    "docs/evidence/D2_QA_REPAIR_REAL.json": "3264ec0785effa31f79e0173702332abdb45de77694b1daf3f7795851cef0f3a",
+    "docs/evidence/D2_REAL_DEMO.json": "b14efed9daa539679d02c9e6642b9cf10111b70b3ec3955210b74ef1cf9d52dc"
+  },
+  "source_hashes_at_closure": {
+    "helmos/__init__.py": "6dcfa37aff2c950e2d73038b451aea862e57d7be69965b07d3d3cb925795da79",
+    "helmos/__main__.py": "b5ba2c7f41f7b09c697556c1966df26a67f5eb03030179af481280a7577b4cb7",
+    "helmos/agent.py": "668722de72d0971729d94d20d48d960f933cfc85c9dde5e3c2b2dea1ba0ec8b3",
+    "helmos/approvals.py": "bbd8d73219b3a696574ee79da66c61f1bb7176ca1c278dc82a42f80bd9bda639",
+    "helmos/core.py": "fe8e9f27d3fd6e69af76eaa3a70119ccf5fbc8e66b8cbac1459913b58a20268a",
+    "helmos/credential_store.py": "97f5fda9e80ed53a0792c2ccfe663235892382afa66f57a60801110f7825caaf",
+    "helmos/devteam.py": "4952e9084ffc5d9fb33c3d65fedfb64fad3af613ea9e2ad9a9ff1c804e8aa939",
+    "helmos/devteam_contracts.py": "56c92602d53eeb5185ca53dafa13fc6f7805be57587e41b4f8aca6dfcfda32c1",
+    "helmos/devteam_demo.py": "40a145da51e49e3246faecfc7f4d5ec3f906403faac432bca24bc85e8206481b",
+    "helmos/devteam_runtime.py": "6b9978ceff3b3ec29e9edc482cdc81a8912c73280fb6f9a53be8f14bacc3cc4f",
+    "helmos/instagram_credentials.py": "6a37d09196434c758fc600395141762a932b51087197057aee5e3a8d5a965233",
+    "helmos/instagram_date_reconciliation.py": "9889e8ce0137658c11e81f390dd56c1571ec13fdd6cc40deff642cd9077646be",
+    "helmos/instagram_http.py": "260f902b31b6c31849451d7aea4c654838d0f6827d1a732670c6c510940b24ba",
+    "helmos/instagram_sync.py": "7d9ed3f1a1f9aa31de069aa9d5a5496054ebd7cbe5e5eae686028d1e56a27fe7",
+    "helmos/recommendation_evaluations.py": "8826799cea5d7d12904b26d7212585760218e5d1df009acf98c90355571fc033",
+    "helmos/recommendations.py": "f207398030d899fee1e2ec4db622ebf6257171feaa0e433367d465ed82a8d209",
+    "helmos/scheduled_instagram.py": "610c0cc6c42480363a0cc6e7489e09feb3322362e8c6564bc5ecff517b959af2",
+    "helmos/social_analyze.py": "5302754fcbd32131aac55680b5e205bb2529a58e39a5aedcfe08f757cf29908a",
+    "helmos/social_connectors.py": "c983fb5d2b19c2a32e115b10900259f4a289a030b5be930c72efaa8f2c68e459",
+    "helmos/social_history.py": "da8ada98e994b5c6bf360cd6866de5b76cb0ffd5eb1ed9d080f9a942ed30df46",
+    "helmos/social_import.py": "36027abf05a3e72bf216fc0b4709593b6e121a9938c932d136898fb4844549cb",
+    "helmos/social_sample.py": "0fec78047fd855762a04db73ad589001e8e78cdb5fc495f30cd3531385fa4ac3",
+    "helmos/sync_diagnostics.py": "3b92962d72105c9eba96f930a494e600e40c7dfc4d8c45d72b8b0eab5d8fca7f",
+    "helmos/sync_lock.py": "7cda2438271e16e2617e507dc85b4a31cf84712c8868bf228016df970c4f130f",
+    "helmos/windows_tasks.py": "d0151b486dd0f75df7bd43b2880d937139bf4a0b735c31a8a0f30b302fd90a24",
+    "tests/test_agent.py": "cd64b66c5675f0ba5796d2bc3407c949b4eb25f078d5af319943c3100219019c",
+    "tests/test_approvals.py": "f8644ab67eae8c538811a809da3146548d2232e526b44676687214f0cc098e96",
+    "tests/test_core.py": "1a22e023f3d6c017b997b21a3a7e917a69631124ec28796d126286f208271841",
+    "tests/test_devteam.py": "50e475e08bbc69c2499dc2521eb9d5f6c9afff6623f73759af087aabebaed4ef",
+    "tests/test_devteam_runtime.py": "e67210ce2910c468f1b6ee61402183b4985bcd8b2250d474c031e41cf09b6d09",
+    "tests/test_instagram_credentials.py": "1366b44d53e58aeffc042466bdfcc9b4951c56abc05cfcd28fde4dffcf6cde05",
+    "tests/test_instagram_date_reconciliation.py": "2561c97c24a9677c8d21d7ca1c671639a46a2a1c07b61a4333de957ac24b8146",
+    "tests/test_instagram_metadata_prevalidation.py": "bee2be95ff80b6d9cec81fd82cc8e722377bf5f303e0846007566521376b615b",
+    "tests/test_instagram_sync.py": "a0ed72cc4af17aedaa9a7d8a3272ee78949af641fb1b8d728a5ff8ce2e7fd0d1",
+    "tests/test_publication_date_conflicts.py": "79b4c9a434e0ddce7ddfefa0a4f7bd4824412bc45617cee0e57f2e92acea2896",
+    "tests/test_recommendation_evaluations.py": "1254467445612abb57c7c9a6c23e72279767964ace373af7d981cb7fbafbc2bc",
+    "tests/test_recommendations.py": "6d9fd991139beaf0ecae580794d53d1fe9da2f4b139862cdd8419ba768e56246",
+    "tests/test_scheduled_instagram.py": "03af07842f39dd3d413e12aa91124026032c532a6974554843b862f34b2c5bbf",
+    "tests/test_social_analyze.py": "8891b0a37de7d6cff76be4bb95de807eabc2086b46f8cd7b2b3a9740b39d9f77",
+    "tests/test_social_connectors.py": "7588e2a87b93fcd66c31b1011fe87579a3f9b488a7e8f923d83b430c66cb8770",
+    "tests/test_social_history.py": "9cde6c90a23cce13a6920a40c3c329da579eddfbd1a8a465b77cfbd92a5702e4",
+    "tests/test_social_import.py": "f909ddcd8424c94ff04d46aa9a8866b7ba4631b35727859034231e712e4e8de3",
+    "tests/test_social_sample.py": "01fed13c3f43968211a62d2792c11d51d8ece078389ec8e08a1d56fc6a78d83e"
+  },
+  "closure_checks": {
+    "syntax": "passed",
+    "evidence_consistency": "passed",
+    "existing_fixture_snapshot": "matched",
+    "human_approval_unchanged": "pending",
+    "credential_pattern_scan": "no matches in publication scope; not a formal secret-detection guarantee"
+  },
+  "not_repeated": [
+    "Codex demonstration",
+    "application tests",
+    "isolation canaries",
+    "full unittest suite"
+  ]
+}

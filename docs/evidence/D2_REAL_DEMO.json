@@ -1,0 +1,224 @@
+{
+  "kind": "real_codex_partial_demo_not_end_to_end_validated",
+  "project_id": "789dc918-e1e4-4492-8987-063e429c31e8",
+  "state": "blocked_environment",
+  "request": "Add normalize_tags(text) in tags.py. Split a comma-separated string, strip each tag, lowercase it, omit empty tags and remove duplicates preserving first order. Raise TypeError for any non-string input, including None. Empty input returns []. Add unittest tests and a README usage example with expected output. No dependencies.",
+  "started_at": "2026-10-27T19:57:46.871231+00:00",
+  "updated_at": "2026-10-27T19:58:23.961533+00:00",
+  "engine": "codex exec",
+  "cli_version": "0.164.0",
+  "model_requested": "gpt-6-sol",
+  "model_effective": "unknown",
+  "calls": 4,
+  "tokens_observed": 58633,
+  "repairs": 0,
+  "error": "Generated tests blocked: native sandbox cannot enforce restricted reads",
+  "history": [
+    {
+      "state": "authorized",
+      "at": "2026-10-27T19:57:46.871231+00:00"
+    },
+    {
+      "state": "preflight",
+      "at": "2026-10-27T19:57:46.895177+00:00"
+    },
+    {
+      "state": "planning",
+      "at": "2026-10-27T19:57:46.971497+00:00"
+    },
+    {
+      "state": "implementing",
+      "at": "2026-10-27T19:57:54.207467+00:00"
+    },
+    {
+      "state": "qa",
+      "at": "2026-10-27T19:58:04.575257+00:00"
+    },
+    {
+      "state": "reviewing",
+      "at": "2026-10-27T19:58:18.353614+00:00"
+    },
+    {
+      "state": "blocked_environment",
+      "at": "2026-10-27T19:58:23.942752+00:00"
+    }
+  ],
+  "attempts": [
+    {
+      "number": 1,
+      "role": "planner",
+      "status": "validated",
+      "started_at": "2026-10-27T19:57:46.977021+00:00",
+      "snapshot": "182001653b47a3df30287eba63dc102af316ef52db09e5a4f42bda8e60af6b4d",
+      "context_hash": "bb0353483d157efe33c715f23dec92f7c727ae1e01ae8f1b2d94b9246b0b7c78",
+      "result": {
+        "outcome": "completed",
+        "summary": "Planned the normalize_tags change using only the supplied project data.",
+        "limitations": [
+          "No code was changed or tests run; this is a plan only."
+        ],
+        "acceptance": [
+          "1. tags.py provides normalize_tags(text), which splits a string on commas, strips whitespace, lowercases tags, and omits empty tags.",
+          "2. Duplicate normalized tags are removed while preserving the order of their first occurrence.",
+          "3. Any non-string input, including None, raises TypeError; an empty string returns [].",
+          "4. unittest tests cover normalization, empty tags, duplicates, order, empty input, and non-string input.",
+          "5. README.md includes a usage example with its expected output. No dependencies are added."
+        ],
+        "steps": [
+          "1. Implement normalize_tags in tags.py using standard-library Python.",
+          "2. Add focused unittest cases for every acceptance criterion.",
+          "3. Add a README example showing the call and expected result."
+        ],
+        "manual_qa": [
+          "Run the unittest suite; expect all tests to pass.",
+          "Call normalize_tags(' News, python, news, , PYTHON, Tech '); expect ['news', 'python', 'tech'].",
+          "Call normalize_tags(''); expect []. Call normalize_tags(None) and normalize_tags(3); expect TypeError in each case.",
+          "Compare the README example with an interactive call; expect the documented output to match."
+        ]
+      },
+      "consumption": {
+        "tokens": 13805,
+        "cost": null,
+        "measurement": "codex_cli_usage"
+      },
+      "thread_id": "01a17ef0-b770-7930-a1a2-822dfe7c3843",
+      "finished_at": "2026-10-27T19:57:54.200535+00:00"
+    },
+    {
+      "number": 2,
+      "role": "developer",
+      "status": "validated",
+      "started_at": "2026-10-27T19:57:54.213298+00:00",
+      "snapshot": "182001653b47a3df30287eba63dc102af316ef52db09e5a4f42bda8e60af6b4d",
+      "context_hash": "3a02a083cbc68bc06a9e3cccfe55a3f9d455b8e7c1921cf1a821630340693df5",
+      "result": {
+        "outcome": "completed",
+        "summary": "Implemented normalize_tags, added unittest coverage, and documented usage.",
+        "limitations": [
+          "Tests were not run because tool and shell access were prohibited."
+        ],
+        "files": [
+          {
+            "path": "tags.py",
+            "content": "\"\"\"Fictional tag utilities; no user data.\"\"\"\n\n\ndef normalize_tags(text):\n    \"\"\"Return unique, nonempty tags in their first-occurrence order.\"\"\"\n    if not isinstance(text, str):\n        raise TypeError(\"text must be a string\")\n\n    result = []\n    seen = set()\n    for part in text.split(\",\"):\n        tag = part.strip().lower()\n        if tag and tag not in seen:\n            seen.add(tag)\n            result.append(tag)\n    return result\n"
+          },
+          {
+            "path": "test_dev_tags.py",
+            "content": "import unittest\n\nfrom tags import normalize_tags\n\n\nclass NormalizeTagsTests(unittest.TestCase):\n    def test_strips_and_lowercases_tags(self):\n        self.assertEqual(normalize_tags(\" News , PYTHON \"), [\"news\", \"python\"])\n\n    def test_omits_empty_tags(self):\n        self.assertEqual(normalize_tags(\" , News, ,  ,Tech, \"), [\"news\", \"tech\"])\n\n    def test_removes_normalized_duplicates_in_first_occurrence_order(self):\n        self.assertEqual(\n            normalize_tags(\" Tech, news, TECH, Python, NEWS, tech \"),\n            [\"tech\", \"news\", \"python\"],\n        )\n\n    def test_empty_input_returns_empty_list(self):\n        self.assertEqual(normalize_tags(\"\"), [])\n\n    def test_non_string_input_raises_type_error(self):\n        for value in (None, 3, [\"news\"], b\"news\"):\n            with self.subTest(value=value):\n                with self.assertRaises(TypeError):\n                    normalize_tags(value)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+          },
+          {
+            "path": "README.md",
+            "content": "# Fictional D2 fixture\n\nNo credentials, dependencies or services.\n\n## Tag normalization\n\n```python\nfrom tags import normalize_tags\n\nprint(normalize_tags(\" News, python, news, , PYTHON, Tech \"))\n# ['news', 'python', 'tech']\n```\n"
+          }
+        ]
+      },
+      "consumption": {
+        "tokens": 14379,
+        "cost": null,
+        "measurement": "codex_cli_usage"
+      },
+      "thread_id": "01a17ef0-d403-7532-bc0f-e2c4b43eae3e",
+      "finished_at": "2026-10-27T19:58:04.522170+00:00"
+    },
+    {
+      "number": 3,
+      "role": "qa",
+      "status": "validated",
+      "started_at": "2026-10-27T19:58:04.581907+00:00",
+      "snapshot": "29cd75b3ed54f7aee4308c2ba883428f6348cbbaa196cd7a06f621998bd23fa9",
+      "context_hash": "2347c82e0e2de37f377bc3f522fabbcfa0073f1d2f04acff543fd8e8dcd214c0",
+      "result": {
+        "outcome": "completed",
+        "summary": "Derived independent unittest cases from the supplied acceptance criteria. Tests were not executed.",
+        "limitations": [
+          "No tools or file access were used; the host will execute the tests."
+        ],
+        "files": [
+          {
+            "path": "test_qa_tags.py",
+            "content": "import unittest\nfrom pathlib import Path\n\nfrom tags import normalize_tags\n\n\nclass NormalizeTagsQATests(unittest.TestCase):\n    def test_splits_strips_and_lowercases(self):\n        self.assertEqual(\n            normalize_tags(\" News, PYTHON , Tech \"),\n            [\"news\", \"python\", \"tech\"],\n        )\n\n    def test_omits_empty_tags_from_repeated_and_trailing_commas(self):\n        self.assertEqual(normalize_tags(\", ,News,, Tech, \"), [\"news\", \"tech\"])\n\n    def test_removes_duplicates_after_normalization_in_first_order(self):\n        self.assertEqual(\n            normalize_tags(\" Tech, news, TECH, Python, NEWS, tech \"),\n            [\"tech\", \"news\", \"python\"],\n        )\n\n    def test_empty_and_whitespace_only_input(self):\n        for text in (\"\", \"   \", \" , , \"):\n            with self.subTest(text=text):\n                self.assertEqual(normalize_tags(text), [])\n\n    def test_non_string_inputs_raise_type_error(self):\n        for value in (None, 0, 1.5, False, b\"news\", [\"news\"], (\"news\",), {\"news\": 1}, object()):\n            with self.subTest(type=type(value).__name__):\n                with self.assertRaises(TypeError):\n                    normalize_tags(value)\n\n    def test_readme_contains_usage_example_and_expected_output(self):\n        readme = (Path(__file__).resolve().parent / \"README.md\").read_text(encoding=\"utf-8\")\n        example = 'print(normalize_tags(\" News, python, news, , PYTHON, Tech \"))'\n        self.assertIn(\"from tags import normalize_tags\", readme)\n        self.assertIn(example, readme)\n        self.assertIn(\"# ['news', 'python', 'tech']\", readme)\n        self.assertEqual(\n            normalize_tags(\" News, python, news, , PYTHON, Tech \"),\n            [\"news\", \"python\", \"tech\"],\n        )\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+          }
+        ],
+        "recipe": "unittest",
+        "defects": [],
+        "coverage": [
+          "Comma splitting, trimming, and lowercasing",
+          "Empty tag omission and empty input",
+          "Duplicate removal after normalization with first occurrence order",
+          "TypeError for non-string inputs, including None",
+          "README usage example and expected output"
+        ]
+      },
+      "consumption": {
+        "tokens": 15381,
+        "cost": null,
+        "measurement": "codex_cli_usage"
+      },
+      "thread_id": "01a17ef0-fc3f-78b3-bf40-6d6e70710c2f",
+      "finished_at": "2026-10-27T19:58:18.317813+00:00"
+    },
+    {
+      "number": 4,
+      "role": "reviewer",
+      "status": "validated",
+      "started_at": "2026-10-27T19:58:18.359056+00:00",
+      "snapshot": "433e67cff1609b870facb4eb31e06078f312fcd5096764e3c22cfee26567ae5c",
+      "context_hash": "2ef7afc45fb7fad571c42007ae78fb1206e9ecf059910cb3ac61a309ce5ce852",
+      "result": {
+        "outcome": "completed",
+        "summary": "The supplied implementation, unit tests, and README example satisfy the stated acceptance criteria on inspection. No concrete defect is evident. Independent review does not constitute human acceptance.",
+        "limitations": [
+          "The isolation preflight failed, so the supplied test results do not establish that the tests pass. No tests were run during this review."
+        ],
+        "defects": [],
+        "manual_qa": [
+          "Run the unittest suite; expect all tests to pass.",
+          "Call normalize_tags(' News, python, news, , PYTHON, Tech '); expect ['news', 'python', 'tech'], matching the README example.",
+          "Call normalize_tags('') and normalize_tags(' , , '); expect [] for both.",
+          "Call normalize_tags(None), normalize_tags(3), and normalize_tags(['news']); expect TypeError for each."
+        ]
+      },
+      "consumption": {
+        "tokens": 15068,
+        "cost": null,
+        "measurement": "codex_cli_usage"
+      },
+      "thread_id": "01a17ef1-31e2-7c83-8439-fce57638b30c",
+      "finished_at": "2026-10-27T19:58:23.936192+00:00"
+    }
+  ],
+  "initial_files": {
+    "README.md": "# Fictional D2 fixture\nNo credentials, dependencies or services.\n",
+    "tags.py": "\"\"\"Fictional tag utilities; no user data.\"\"\"\n"
+  },
+  "final_files": {
+    "README.md": "# Fictional D2 fixture\n\nNo credentials, dependencies or services.\n\n## Tag normalization\n\n```python\nfrom tags import normalize_tags\n\nprint(normalize_tags(\" News, python, news, , PYTHON, Tech \"))\n# ['news', 'python', 'tech']\n```\n",
+    "tags.py": "\"\"\"Fictional tag utilities; no user data.\"\"\"\n\n\ndef normalize_tags(text):\n    \"\"\"Return unique, nonempty tags in their first-occurrence order.\"\"\"\n    if not isinstance(text, str):\n        raise TypeError(\"text must be a string\")\n\n    result = []\n    seen = set()\n    for part in text.split(\",\"):\n        tag = part.strip().lower()\n        if tag and tag not in seen:\n            seen.add(tag)\n            result.append(tag)\n    return result\n",
+    "test_dev_tags.py": "import unittest\n\nfrom tags import normalize_tags\n\n\nclass NormalizeTagsTests(unittest.TestCase):\n    def test_strips_and_lowercases_tags(self):\n        self.assertEqual(normalize_tags(\" News , PYTHON \"), [\"news\", \"python\"])\n\n    def test_omits_empty_tags(self):\n        self.assertEqual(normalize_tags(\" , News, ,  ,Tech, \"), [\"news\", \"tech\"])\n\n    def test_removes_normalized_duplicates_in_first_occurrence_order(self):\n        self.assertEqual(\n            normalize_tags(\" Tech, news, TECH, Python, NEWS, tech \"),\n            [\"tech\", \"news\", \"python\"],\n        )\n\n    def test_empty_input_returns_empty_list(self):\n        self.assertEqual(normalize_tags(\"\"), [])\n\n    def test_non_string_input_raises_type_error(self):\n        for value in (None, 3, [\"news\"], b\"news\"):\n            with self.subTest(value=value):\n                with self.assertRaises(TypeError):\n                    normalize_tags(value)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n",
+    "test_qa_tags.py": "import unittest\nfrom pathlib import Path\n\nfrom tags import normalize_tags\n\n\nclass NormalizeTagsQATests(unittest.TestCase):\n    def test_splits_strips_and_lowercases(self):\n        self.assertEqual(\n            normalize_tags(\" News, PYTHON , Tech \"),\n            [\"news\", \"python\", \"tech\"],\n        )\n\n    def test_omits_empty_tags_from_repeated_and_trailing_commas(self):\n        self.assertEqual(normalize_tags(\", ,News,, Tech, \"), [\"news\", \"tech\"])\n\n    def test_removes_duplicates_after_normalization_in_first_order(self):\n        self.assertEqual(\n            normalize_tags(\" Tech, news, TECH, Python, NEWS, tech \"),\n            [\"tech\", \"news\", \"python\"],\n        )\n\n    def test_empty_and_whitespace_only_input(self):\n        for text in (\"\", \"   \", \" , , \"):\n            with self.subTest(text=text):\n                self.assertEqual(normalize_tags(text), [])\n\n    def test_non_string_inputs_raise_type_error(self):\n        for value in (None, 0, 1.5, False, b\"news\", [\"news\"], (\"news\",), {\"news\": 1}, object()):\n            with self.subTest(type=type(value).__name__):\n                with self.assertRaises(TypeError):\n                    normalize_tags(value)\n\n    def test_readme_contains_usage_example_and_expected_output(self):\n        readme = (Path(__file__).resolve().parent / \"README.md\").read_text(encoding=\"utf-8\")\n        example = 'print(normalize_tags(\" News, python, news, , PYTHON, Tech \"))'\n        self.assertIn(\"from tags import normalize_tags\", readme)\n        self.assertIn(example, readme)\n        self.assertIn(\"# ['news', 'python', 'tech']\", readme)\n        self.assertEqual(\n            normalize_tags(\" News, python, news, , PYTHON, Tech \"),\n            [\"news\", \"python\", \"tech\"],\n        )\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+  },
+  "snapshot_sha256": "433e67cff1609b870facb4eb31e06078f312fcd5096764e3c22cfee26567ae5c",
+  "tests": [
+    {
+      "passed": false,
+      "blocked": true,
+      "log": "Isolation preflight failed; generated tests were not executed",
+      "snapshot": "433e67cff1609b870facb4eb31e06078f312fcd5096764e3c22cfee26567ae5c"
+    }
+  ],
+  "isolation": {
+    "exit_code": 1,
+    "log": "windows sandbox failed: Restricted read-only access requires the elevated Windows sandbox backend\n",
+    "checks": {},
+    "passed": false,
+    "mode": "host_applied_files; agents_have_no_shell"
+  },
+  "runtime_artifacts_relative": "var\\d2-demos\\40d738aa-1c27-41cf-aa70-83b8fd176d5e\\state\\devteam\\789dc918-e1e4-4492-8987-063e429c31e8",
+  "approval_id": "579f82fe-cc35-417d-809b-4f3a3f8ce0d2",
+  "limitations": [
+    "Generated tests were not executed.",
+    "Repair loops were validated only with deterministic fixtures.",
+    "Raw Codex JSONL is not retained by the existing adapter.",
+    "Host file application checked; native denial/child termination checks could not run because backend startup failed."
+  ]
+}

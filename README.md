@@ -1,5 +1,9 @@
 # HelmOS
 
+D2: [QA con MXC y reparación real verificada](docs/D2_QA_UNBLOCK.md). Developer → QA → reparación → QA → Reviewer → entrega comprobados en una fixture ficticia; aceptación humana pendiente. Demo explícita: `python -m helmos.devteam_demo --repair-demo`.
+
+[Cierre técnico D2 y plan de aceptación humana pendiente](docs/D2_CLOSURE.md). Conserva las 253 pruebas y la demostración existente; no requiere repetirla para revisar la entrega.
+
 I4-B2: [desarrollo cerrado con incidencia operativa pendiente](docs/I4_B2_CLOSURE.md). Sincronización manual comprobada; sincronización diaria sin validación completa. Tarea instalada y deshabilitada.
 
 I4-B1 solicitado: [almacén cifrado de credenciales Instagram, renovación, CLI y ensayo controlado](docs/I4_B1_INSTAGRAM_CREDENTIALS.md). Contrato oficial de renovación reconfirmado; renovación real controlada pendiente.

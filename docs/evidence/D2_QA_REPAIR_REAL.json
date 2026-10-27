@@ -1,0 +1,570 @@
+{
+  "kind": "real_codex_and_mxc_execution_with_declared_fault_injection",
+  "cli_version": "0.164.0",
+  "model_requested": "gpt-6-sol",
+  "model_effective": "unknown",
+  "original_limits_unchanged": true,
+  "project": {
+    "id": "00824e89-76b3-4c4c-88b8-3fe90cd4829f",
+    "state": "ready_for_acceptance",
+    "workspace": "C:\\workspace\\HelmOS\\var\\d2-demos\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\fictional-repository",
+    "request": "Add normalize_tags(text) in tags.py. Split a comma-separated string, strip each tag, lowercase it, omit empty tags and remove duplicates preserving first order. Raise TypeError for any non-string input, including None. Empty input returns []. Add unittest tests and a README usage example with expected output. No dependencies. Fault-injection protocol for this disposable demo only: in the FIRST Developer proposal retain the existing None -> [] defect while implementing the rest. QA must test FINAL acceptance (None raises TypeError) immediately and never weaken that test. After the host actually reproduces this failure, Developer must fix the guard and all tests must pass. This is an explicit seeded defect, not an excuse to claim tests pass before executing them. In the output contract, completed means the file proposal is ready for QA; it does NOT mean tests pass. Do not return blocked solely because the initial seeded acceptance defect remains.",
+    "started_at": "2026-10-27T20:51:03.561032+00:00",
+    "updated_at": "2026-10-27T20:52:10.351763+00:00",
+    "budget": {
+      "calls": 16,
+      "repairs": 2,
+      "seconds": 1800,
+      "task_seconds": 120,
+      "tokens": 100000
+    },
+    "authorization_hash": "c4bc60e0a474ca07e03e140fc5f8e59027e090cb6081de601c3c11ffce6c3c07",
+    "calls": 6,
+    "tokens": 95340,
+    "usage_unknown": false,
+    "repairs": 1,
+    "history": [
+      {
+        "state": "authorized",
+        "at": "2026-10-27T20:51:03.561032+00:00"
+      },
+      {
+        "state": "preflight",
+        "at": "2026-10-27T20:51:03.582592+00:00"
+      },
+      {
+        "state": "planning",
+        "at": "2026-10-27T20:51:10.032077+00:00"
+      },
+      {
+        "state": "implementing",
+        "at": "2026-10-27T20:51:19.981583+00:00"
+      },
+      {
+        "state": "qa",
+        "at": "2026-10-27T20:51:31.067889+00:00"
+      },
+      {
+        "state": "repairing",
+        "at": "2026-10-27T20:51:43.345354+00:00"
+      },
+      {
+        "state": "implementing",
+        "at": "2026-10-27T20:51:43.349337+00:00"
+      },
+      {
+        "state": "qa",
+        "at": "2026-10-27T20:51:54.135346+00:00"
+      },
+      {
+        "state": "reviewing",
+        "at": "2026-10-27T20:52:04.312093+00:00"
+      },
+      {
+        "state": "ready_for_acceptance",
+        "at": "2026-10-27T20:52:10.329077+00:00"
+      }
+    ],
+    "attempts": [
+      {
+        "number": 1,
+        "role": "planner",
+        "status": "validated",
+        "started_at": "2026-10-27T20:51:10.035939+00:00",
+        "snapshot": "0cbc57ac06665ecdc72734c729229ec5832ae1d00e61b0cad2e2ef418b43095b",
+        "context_hash": "b0145b5cc8dc793da63f50561f64d71e45844a1d642bf3a2bbd1852ebbce146a",
+        "result": {
+          "outcome": "completed",
+          "summary": "Bounded implementation and QA plan for normalize_tags(text).",
+          "limitations": [
+            "Planning only; no files were changed or tests run. The first proposal is intentionally expected to fail the None acceptance test until the host reproduces that failure."
+          ],
+          "acceptance": [
+            "1. normalize_tags(text) splits a comma-separated string, strips whitespace, lowercases tags, and omits empty tags.",
+            "2. Duplicate tags are removed while preserving the order of their first occurrence.",
+            "3. An empty string returns [].",
+            "4. Every non-string input, including None, raises TypeError.",
+            "5. unittest tests cover these behaviors, and README.md includes a usage example with expected output. No dependencies are added."
+          ],
+          "steps": [
+            "1. Implement the string normalization in tags.py. In the first Developer proposal only, retain the existing None -> [] guard as required by the disposable demo protocol.",
+            "2. Add unittest tests for all final acceptance criteria immediately, including a test that requires TypeError for None. Add the README usage example and expected output.",
+            "3. Have the host run the tests and reproduce the expected None test failure. Do not report the initial suite as passing or weaken the test.",
+            "4. After that failure is reproduced, change the input guard so None and every other non-string value raise TypeError. Run the full test suite and confirm it passes."
+          ],
+          "manual_qa": [
+            "Review the first proposal: normalization behavior, tests, and README example are present; the None -> [] guard remains only for the initial fault-injection stage.",
+            "Run the unittest suite against the first proposal. Expected: the None TypeError test fails, and the host records that failure.",
+            "After the guard fix, run the full unittest suite. Expected: all tests pass, including None and other non-string TypeError cases.",
+            "Check the README example against normalize_tags. Expected: its stated output matches the function result, with trimmed lowercase unique tags in first-occurrence order."
+          ]
+        },
+        "consumption": {
+          "tokens": 14177,
+          "cost": null,
+          "measurement": "codex_cli_usage"
+        },
+        "thread_id": "01a17f21-9718-7170-ae29-3619dc7942d6",
+        "finished_at": "2026-10-27T20:51:19.974660+00:00"
+      },
+      {
+        "number": 2,
+        "role": "developer",
+        "status": "validated",
+        "started_at": "2026-10-27T20:51:19.986520+00:00",
+        "snapshot": "0cbc57ac06665ecdc72734c729229ec5832ae1d00e61b0cad2e2ef418b43095b",
+        "context_hash": "09b76375335fcc62ecf4d7b841d6b4382c15307a24589eb0b5f8fef3b87a2820",
+        "result": {
+          "outcome": "completed",
+          "summary": "First Developer proposal is ready for QA. Tag normalization, final-acceptance unittest tests, and a README example are included. The required initial None -> [] defect remains for the host to reproduce.",
+          "limitations": [
+            "Tests were not run, as requested. The None acceptance test is expected to fail in this first proposal; after the host reproduces that failure, the input guard must be fixed."
+          ],
+          "files": [
+            {
+              "path": "tags.py",
+              "content": "\"\"\"Normalize comma-separated tags.\"\"\"\n\n\ndef normalize_tags(text):\n    if text is None:\n        return []  # Initial seeded defect; final acceptance requires TypeError.\n    if not isinstance(text, str):\n        raise TypeError(\"text must be a string\")\n\n    tags = []\n    seen = set()\n    for item in text.split(\",\"):\n        tag = item.strip().lower()\n        if tag and tag not in seen:\n            seen.add(tag)\n            tags.append(tag)\n    return tags\n"
+            },
+            {
+              "path": "test_dev_tags.py",
+              "content": "import unittest\n\nfrom tags import normalize_tags\n\n\nclass NormalizeTagsTests(unittest.TestCase):\n    def test_strips_lowercases_and_omits_empty_tags(self):\n        self.assertEqual(\n            normalize_tags(\"  Python  , , WEB,  Data Science  , \"),\n            [\"python\", \"web\", \"data science\"],\n        )\n\n    def test_removes_duplicates_preserving_first_order(self):\n        self.assertEqual(\n            normalize_tags(\"Python, WEB, python, web, Data\"),\n            [\"python\", \"web\", \"data\"],\n        )\n\n    def test_empty_string_returns_empty_list(self):\n        self.assertEqual(normalize_tags(\"\"), [])\n\n    def test_only_empty_tags_returns_empty_list(self):\n        self.assertEqual(normalize_tags(\" ,  , \"), [])\n\n    def test_none_raises_type_error(self):\n        with self.assertRaises(TypeError):\n            normalize_tags(None)\n\n    def test_other_non_string_inputs_raise_type_error(self):\n        for value in (0, False, [], [\"python\"], {\"python\": 1}):\n            with self.subTest(value=value):\n                with self.assertRaises(TypeError):\n                    normalize_tags(value)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+            },
+            {
+              "path": "README.md",
+              "content": "# Fictional D2 fixture\n\nNo credentials, dependencies or services.\n\n## Usage\n\n```python\nfrom tags import normalize_tags\n\nprint(normalize_tags(\" Python, web, PYTHON, , Data Science \"))\n# ['python', 'web', 'data science']\n```\n"
+            }
+          ]
+        },
+        "consumption": {
+          "tokens": 14884,
+          "cost": null,
+          "measurement": "codex_cli_usage"
+        },
+        "thread_id": "01a17f21-bdfc-7401-ace9-07899a3aca79",
+        "finished_at": "2026-10-27T20:51:31.027376+00:00"
+      },
+      {
+        "number": 3,
+        "role": "qa",
+        "status": "validated",
+        "started_at": "2026-10-27T20:51:31.072403+00:00",
+        "snapshot": "7a85e44bb78e3bf9025a1f622dea77c126aaf40c19f9c8cc4d25f95e9b57d293",
+        "context_hash": "e2effba3a0f9242284bdba970d74700685cdf90b921f362873ba946f9d9c1d88",
+        "result": {
+          "outcome": "completed",
+          "summary": "Prepared unittest coverage for the final acceptance criteria. Tests were not executed.",
+          "limitations": [
+            "No tests were executed; the host will run the unittest recipe."
+          ],
+          "files": [
+            {
+              "path": "test_qa_tags.py",
+              "content": "import unittest\n\nfrom tags import normalize_tags\n\n\nclass NormalizeTagsQATests(unittest.TestCase):\n    def test_readme_example(self):\n        self.assertEqual(\n            normalize_tags(\" Python, web, PYTHON, , Data Science \"),\n            [\"python\", \"web\", \"data science\"],\n        )\n\n    def test_strips_lowercases_and_omits_empty_tags(self):\n        self.assertEqual(\n            normalize_tags(\"  Python  , , WEB,  Data Science  , \"),\n            [\"python\", \"web\", \"data science\"],\n        )\n\n    def test_duplicates_preserve_first_occurrence_order(self):\n        self.assertEqual(\n            normalize_tags(\"B, a, b, C, A, c\"),\n            [\"b\", \"a\", \"c\"],\n        )\n\n    def test_empty_string_returns_empty_list(self):\n        self.assertEqual(normalize_tags(\"\"), [])\n\n    def test_only_empty_tags_returns_empty_list(self):\n        self.assertEqual(normalize_tags(\" ,  , \"), [])\n\n    def test_none_raises_type_error(self):\n        with self.assertRaises(TypeError):\n            normalize_tags(None)\n\n    def test_other_non_string_inputs_raise_type_error(self):\n        for value in (0, False, 1.5, b\"a,b\", [], [\"a\"], {\"a\": 1}):\n            with self.subTest(value=value):\n                with self.assertRaises(TypeError):\n                    normalize_tags(value)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+            }
+          ],
+          "recipe": "unittest",
+          "defects": [
+            {
+              "id": "QA-001",
+              "severity": "P2",
+              "path": "tags.py",
+              "reproduction": "Call normalize_tags(None), or run test_qa_tags.NormalizeTagsQATests.test_none_raises_type_error.",
+              "expected": "TypeError is raised because None is not a string.",
+              "observed": "Source inspection shows the None branch returns []; this result has not been executed or verified by the host."
+            }
+          ],
+          "coverage": [
+            "Comma splitting, whitespace stripping, lowercasing, and empty-tag omission",
+            "Duplicate removal with first-occurrence order",
+            "Empty string and strings containing only empty tags",
+            "TypeError for None and representative other non-string inputs",
+            "README example output"
+          ]
+        },
+        "consumption": {
+          "tokens": 15457,
+          "cost": null,
+          "measurement": "codex_cli_usage"
+        },
+        "thread_id": "01a17f21-e940-7dd2-8736-69dd6a9db459",
+        "finished_at": "2026-10-27T20:51:42.934922+00:00"
+      },
+      {
+        "number": 4,
+        "role": "developer",
+        "status": "validated",
+        "started_at": "2026-10-27T20:51:43.356319+00:00",
+        "snapshot": "f46e298e039c1b932975213e188c827775c3d57855dee28c4c26c93448334e85",
+        "context_hash": "f4901c0b77cea4cc3484051f42833bdd9eb36cfa2d1a2b2bf049e99e965b7de7",
+        "result": {
+          "outcome": "completed",
+          "summary": "Fixed normalize_tags(None) to raise TypeError after the supplied host run reproduced the seeded failure. The proposal includes the full implementation, unittest tests, and README example. Ready for QA.",
+          "limitations": [
+            "Tests were not rerun in this turn because tool use was prohibited."
+          ],
+          "files": [
+            {
+              "path": "tags.py",
+              "content": "\"\"\"Normalize comma-separated tags.\"\"\"\n\n\ndef normalize_tags(text):\n    if not isinstance(text, str):\n        raise TypeError(\"text must be a string\")\n\n    tags = []\n    seen = set()\n    for item in text.split(\",\"):\n        tag = item.strip().lower()\n        if tag and tag not in seen:\n            seen.add(tag)\n            tags.append(tag)\n    return tags\n"
+            },
+            {
+              "path": "test_dev_tags.py",
+              "content": "import unittest\n\nfrom tags import normalize_tags\n\n\nclass NormalizeTagsTests(unittest.TestCase):\n    def test_strips_lowercases_and_omits_empty_tags(self):\n        self.assertEqual(\n            normalize_tags(\"  Python  , , WEB,  Data Science  , \"),\n            [\"python\", \"web\", \"data science\"],\n        )\n\n    def test_removes_duplicates_preserving_first_order(self):\n        self.assertEqual(\n            normalize_tags(\"Python, WEB, python, web, Data\"),\n            [\"python\", \"web\", \"data\"],\n        )\n\n    def test_empty_string_returns_empty_list(self):\n        self.assertEqual(normalize_tags(\"\"), [])\n\n    def test_only_empty_tags_returns_empty_list(self):\n        self.assertEqual(normalize_tags(\" ,  , \"), [])\n\n    def test_none_raises_type_error(self):\n        with self.assertRaises(TypeError):\n            normalize_tags(None)\n\n    def test_other_non_string_inputs_raise_type_error(self):\n        for value in (0, False, 1.5, b\"a,b\", [], [\"python\"], {\"python\": 1}):\n            with self.subTest(value=value):\n                with self.assertRaises(TypeError):\n                    normalize_tags(value)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+            },
+            {
+              "path": "README.md",
+              "content": "# Fictional D2 fixture\n\nNo credentials, dependencies or services.\n\n## Usage\n\n```python\nfrom tags import normalize_tags\n\nprint(normalize_tags(\" Python, web, PYTHON, , Data Science \"))\n# ['python', 'web', 'data science']\n```\n"
+            }
+          ]
+        },
+        "consumption": {
+          "tokens": 17902,
+          "cost": null,
+          "measurement": "codex_cli_usage"
+        },
+        "thread_id": "01a17f22-1951-7991-9929-1755fc749c60",
+        "finished_at": "2026-10-27T20:51:54.096611+00:00"
+      },
+      {
+        "number": 5,
+        "role": "qa",
+        "status": "validated",
+        "started_at": "2026-10-27T20:51:54.140350+00:00",
+        "snapshot": "393dfdb82439316ec67ea11c34595700273c72d3201d292733369a4465339b13",
+        "context_hash": "ff89f637963a2c80fd404be794974884857045150711ad04c0161c6ce24433ce",
+        "result": {
+          "outcome": "completed",
+          "summary": "Prepared independent unittest coverage for the final acceptance criteria. Tests were not executed.",
+          "limitations": [
+            "Execution is reserved for the host; no test result is claimed."
+          ],
+          "files": [
+            {
+              "path": "test_qa_tags.py",
+              "content": "import unittest\n\nfrom tags import normalize_tags\n\n\nclass NormalizeTagsQATests(unittest.TestCase):\n    def test_readme_example(self):\n        self.assertEqual(\n            normalize_tags(\" Python, web, PYTHON, , Data Science \"),\n            [\"python\", \"web\", \"data science\"],\n        )\n\n    def test_strips_whitespace_lowercases_and_omits_empty_tags(self):\n        self.assertEqual(\n            normalize_tags(\"\\t Python \\n, , WEB,  Data Science  ,, \"),\n            [\"python\", \"web\", \"data science\"],\n        )\n\n    def test_duplicates_preserve_first_occurrence_order(self):\n        self.assertEqual(\n            normalize_tags(\"B, a, b, C, A, c\"),\n            [\"b\", \"a\", \"c\"],\n        )\n\n    def test_empty_string_returns_empty_list(self):\n        self.assertEqual(normalize_tags(\"\"), [])\n\n    def test_only_empty_tags_returns_empty_list(self):\n        for text in (\"   \", \",\", \" ,  , \"):\n            with self.subTest(text=text):\n                self.assertEqual(normalize_tags(text), [])\n\n    def test_every_non_string_input_raises_type_error(self):\n        for value in (None, 0, False, 1.5, b\"a,b\", [], [\"a\"], {\"a\": 1}, object()):\n            with self.subTest(value=value):\n                with self.assertRaises(TypeError):\n                    normalize_tags(value)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+            }
+          ],
+          "recipe": "unittest",
+          "defects": [],
+          "coverage": [
+            "README example and expected output",
+            "Comma splitting, whitespace stripping, lowercasing, and empty-tag omission",
+            "Duplicate removal with first-occurrence order",
+            "Empty and delimiter-only input",
+            "TypeError for None and other non-string inputs"
+          ]
+        },
+        "consumption": {
+          "tokens": 15800,
+          "cost": null,
+          "measurement": "codex_cli_usage"
+        },
+        "thread_id": "01a17f22-436c-76c2-84c0-278b96890309",
+        "finished_at": "2026-10-27T20:52:03.960749+00:00"
+      },
+      {
+        "number": 6,
+        "role": "reviewer",
+        "status": "validated",
+        "started_at": "2026-10-27T20:52:04.316973+00:00",
+        "snapshot": "d522be16a6e3bf076b8aaf227172ed28496ce02b75ec9de7168f20579e8748e3",
+        "context_hash": "1f039e74dcfa2f219ab652d4f147429b4536761d9c07adfd2d4f28e952ab67c2",
+        "result": {
+          "outcome": "completed",
+          "summary": "Final supplied source meets the request. The earlier None defect was reproduced in the supplied failure log, then fixed; the final reported run passed all 12 tests. No blocking defects remain.",
+          "limitations": [
+            "Review used only supplied data; no independent test run or file inspection was performed."
+          ],
+          "defects": [],
+          "manual_qa": [
+            "Run unittest discovery on the final files. Expected: all 12 tests pass, including TypeError for None and other non-string inputs.",
+            "Call normalize_tags(\" Python, web, PYTHON, , Data Science \"). Expected: ['python', 'web', 'data science'], matching the README.",
+            "Call normalize_tags(\"\") and normalize_tags(\" ,  , \"). Expected: [] for both."
+          ]
+        },
+        "consumption": {
+          "tokens": 17120,
+          "cost": null,
+          "measurement": "codex_cli_usage"
+        },
+        "thread_id": "01a17f22-6b1d-7f12-b0e1-c4497f02a77e",
+        "finished_at": "2026-10-27T20:52:10.318457+00:00"
+      }
+    ],
+    "snapshot": {
+      "README.md": "# Fictional D2 fixture\n\nNo credentials, dependencies or services.\n\n## Usage\n\n```python\nfrom tags import normalize_tags\n\nprint(normalize_tags(\" Python, web, PYTHON, , Data Science \"))\n# ['python', 'web', 'data science']\n```\n",
+      "tags.py": "\"\"\"Normalize comma-separated tags.\"\"\"\n\n\ndef normalize_tags(text):\n    if not isinstance(text, str):\n        raise TypeError(\"text must be a string\")\n\n    tags = []\n    seen = set()\n    for item in text.split(\",\"):\n        tag = item.strip().lower()\n        if tag and tag not in seen:\n            seen.add(tag)\n            tags.append(tag)\n    return tags\n",
+      "test_dev_tags.py": "import unittest\n\nfrom tags import normalize_tags\n\n\nclass NormalizeTagsTests(unittest.TestCase):\n    def test_strips_lowercases_and_omits_empty_tags(self):\n        self.assertEqual(\n            normalize_tags(\"  Python  , , WEB,  Data Science  , \"),\n            [\"python\", \"web\", \"data science\"],\n        )\n\n    def test_removes_duplicates_preserving_first_order(self):\n        self.assertEqual(\n            normalize_tags(\"Python, WEB, python, web, Data\"),\n            [\"python\", \"web\", \"data\"],\n        )\n\n    def test_empty_string_returns_empty_list(self):\n        self.assertEqual(normalize_tags(\"\"), [])\n\n    def test_only_empty_tags_returns_empty_list(self):\n        self.assertEqual(normalize_tags(\" ,  , \"), [])\n\n    def test_none_raises_type_error(self):\n        with self.assertRaises(TypeError):\n            normalize_tags(None)\n\n    def test_other_non_string_inputs_raise_type_error(self):\n        for value in (0, False, 1.5, b\"a,b\", [], [\"python\"], {\"python\": 1}):\n            with self.subTest(value=value):\n                with self.assertRaises(TypeError):\n                    normalize_tags(value)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n",
+      "test_qa_tags.py": "import unittest\n\nfrom tags import normalize_tags\n\n\nclass NormalizeTagsQATests(unittest.TestCase):\n    def test_readme_example(self):\n        self.assertEqual(\n            normalize_tags(\" Python, web, PYTHON, , Data Science \"),\n            [\"python\", \"web\", \"data science\"],\n        )\n\n    def test_strips_whitespace_lowercases_and_omits_empty_tags(self):\n        self.assertEqual(\n            normalize_tags(\"\\t Python \\n, , WEB,  Data Science  ,, \"),\n            [\"python\", \"web\", \"data science\"],\n        )\n\n    def test_duplicates_preserve_first_occurrence_order(self):\n        self.assertEqual(\n            normalize_tags(\"B, a, b, C, A, c\"),\n            [\"b\", \"a\", \"c\"],\n        )\n\n    def test_empty_string_returns_empty_list(self):\n        self.assertEqual(normalize_tags(\"\"), [])\n\n    def test_only_empty_tags_returns_empty_list(self):\n        for text in (\"   \", \",\", \" ,  , \"):\n            with self.subTest(text=text):\n                self.assertEqual(normalize_tags(text), [])\n\n    def test_every_non_string_input_raises_type_error(self):\n        for value in (None, 0, False, 1.5, b\"a,b\", [], [\"a\"], {\"a\": 1}, object()):\n            with self.subTest(value=value):\n                with self.assertRaises(TypeError):\n                    normalize_tags(value)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+    },
+    "initial_snapshot": {
+      "README.md": "# Fictional D2 fixture\r\nNo credentials, dependencies or services.\r\n",
+      "tags.py": "\"\"\"Fictional fault-injection fixture, never production.\"\"\"\r\ndef normalize_tags(text):\r\n    if text is None:\r\n        return []  # Seeded acceptance defect: must eventually raise TypeError.\r\n    raise NotImplementedError(\"Complete the normalizer\")\r\n"
+    },
+    "defects": [],
+    "tests": [
+      {
+        "exit_code": 1,
+        "log": "test_empty_string_returns_empty_list (test_dev_tags.NormalizeTagsTests.test_empty_string_returns_empty_list) ... ok\r\ntest_none_raises_type_error (test_dev_tags.NormalizeTagsTests.test_none_raises_type_error) ... FAIL\r\ntest_only_empty_tags_returns_empty_list (test_dev_tags.NormalizeTagsTests.test_only_empty_tags_returns_empty_list) ... ok\r\ntest_other_non_string_inputs_raise_type_error (test_dev_tags.NormalizeTagsTests.test_other_non_string_inputs_raise_type_error) ... ok\r\ntest_removes_duplicates_preserving_first_order (test_dev_tags.NormalizeTagsTests.test_removes_duplicates_preserving_first_order) ... ok\r\ntest_strips_lowercases_and_omits_empty_tags (test_dev_tags.NormalizeTagsTests.test_strips_lowercases_and_omits_empty_tags) ... ok\r\ntest_duplicates_preserve_first_occurrence_order (test_qa_tags.NormalizeTagsQATests.test_duplicates_preserve_first_occurrence_order) ... ok\r\ntest_empty_string_returns_empty_list (test_qa_tags.NormalizeTagsQATests.test_empty_string_returns_empty_list) ... ok\r\ntest_none_raises_type_error (test_qa_tags.NormalizeTagsQATests.test_none_raises_type_error) ... FAIL\r\ntest_only_empty_tags_returns_empty_list (test_qa_tags.NormalizeTagsQATests.test_only_empty_tags_returns_empty_list) ... ok\r\ntest_other_non_string_inputs_raise_type_error (test_qa_tags.NormalizeTagsQATests.test_other_non_string_inputs_raise_type_error) ... ok\r\ntest_readme_example (test_qa_tags.NormalizeTagsQATests.test_readme_example) ... ok\r\ntest_strips_lowercases_and_omits_empty_tags (test_qa_tags.NormalizeTagsQATests.test_strips_lowercases_and_omits_empty_tags) ... ok\r\n\r\n======================================================================\r\nFAIL: test_none_raises_type_error (test_dev_tags.NormalizeTagsTests.test_none_raises_type_error)\r\n----------------------------------------------------------------------\r\nTraceback (most recent call last):\r\n  File \"C:\\workspace\\HelmOS\\var\\d2-demos\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\fictional-repository\\test_dev_tags.py\", line 26, in test_none_raises_type_error\r\n    with self.assertRaises(TypeError):\r\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^\r\nAssertionError: TypeError not raised\r\n\r\n======================================================================\r\nFAIL: test_none_raises_type_error (test_qa_tags.NormalizeTagsQATests.test_none_raises_type_error)\r\n----------------------------------------------------------------------\r\nTraceback (most recent call last):\r\n  File \"C:\\workspace\\HelmOS\\var\\d2-demos\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\fictional-repository\\test_qa_tags.py\", line 32, in test_none_raises_type_error\r\n    with self.assertRaises(TypeError):\r\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^\r\nAssertionError: TypeError not raised\r\n\r\n----------------------------------------------------------------------\r\nRan 13 tests in 0.002s\r\n\r\nFAILED (failures=2)\r\nD2_TEST={\"tests\": 13, \"failures\": 2, \"errors\": 0, \"skipped\": 0}\r\n",
+        "seconds": 0.361848699998518,
+        "terminated": false,
+        "recipe": "codex-sandbox/python-isolated",
+        "argv": [
+          "C:\\Users\\jorge\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+          "-c",
+          "windows.sandbox=mxc",
+          "-c",
+          "permissions.helmos_d2_3b8610af3e8f4e329a928724f7c898f1.filesystem={\":minimal\"=\"read\",\"C:\\\\workspace\\\\HelmOS\\\\var\\\\d2-demos\\\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\\\fictional-repository\"=\"write\",\"C:\\\\Users\\\\jorge\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python314\"=\"read\"}",
+          "-c",
+          "permissions.helmos_d2_3b8610af3e8f4e329a928724f7c898f1.network.enabled=false",
+          "sandbox",
+          "--include-managed-config",
+          "--permission-profile",
+          "helmos_d2_3b8610af3e8f4e329a928724f7c898f1",
+          "--cd",
+          "C:\\workspace\\HelmOS\\var\\d2-demos\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\fictional-repository",
+          "--",
+          "C:\\Users\\jorge\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+          "-I",
+          "-B",
+          "-c",
+          "\nimport json, pathlib, sys, unittest\nsys.path.insert(0, str(pathlib.Path.cwd()))\nsuite = unittest.defaultTestLoader.discover('.', pattern='test_*.py')\nresult = unittest.TextTestRunner(verbosity=2).run(suite)\nprint('D2_TEST=' + json.dumps({'tests': result.testsRun,\n    'failures': len(result.failures), 'errors': len(result.errors), 'skipped': len(result.skipped)}))\nsys.exit(0 if result.wasSuccessful() and result.testsRun > 0 and not result.skipped else 1)\n"
+        ],
+        "counts": {
+          "tests": 13,
+          "failures": 2,
+          "errors": 0,
+          "skipped": 0
+        },
+        "passed": false,
+        "snapshot": "f46e298e039c1b932975213e188c827775c3d57855dee28c4c26c93448334e85"
+      },
+      {
+        "exit_code": 0,
+        "log": "test_empty_string_returns_empty_list (test_dev_tags.NormalizeTagsTests.test_empty_string_returns_empty_list) ... ok\r\ntest_none_raises_type_error (test_dev_tags.NormalizeTagsTests.test_none_raises_type_error) ... ok\r\ntest_only_empty_tags_returns_empty_list (test_dev_tags.NormalizeTagsTests.test_only_empty_tags_returns_empty_list) ... ok\r\ntest_other_non_string_inputs_raise_type_error (test_dev_tags.NormalizeTagsTests.test_other_non_string_inputs_raise_type_error) ... ok\r\ntest_removes_duplicates_preserving_first_order (test_dev_tags.NormalizeTagsTests.test_removes_duplicates_preserving_first_order) ... ok\r\ntest_strips_lowercases_and_omits_empty_tags (test_dev_tags.NormalizeTagsTests.test_strips_lowercases_and_omits_empty_tags) ... ok\r\ntest_duplicates_preserve_first_occurrence_order (test_qa_tags.NormalizeTagsQATests.test_duplicates_preserve_first_occurrence_order) ... ok\r\ntest_empty_string_returns_empty_list (test_qa_tags.NormalizeTagsQATests.test_empty_string_returns_empty_list) ... ok\r\ntest_every_non_string_input_raises_type_error (test_qa_tags.NormalizeTagsQATests.test_every_non_string_input_raises_type_error) ... ok\r\ntest_only_empty_tags_returns_empty_list (test_qa_tags.NormalizeTagsQATests.test_only_empty_tags_returns_empty_list) ... ok\r\ntest_readme_example (test_qa_tags.NormalizeTagsQATests.test_readme_example) ... ok\r\ntest_strips_whitespace_lowercases_and_omits_empty_tags (test_qa_tags.NormalizeTagsQATests.test_strips_whitespace_lowercases_and_omits_empty_tags) ... ok\r\n\r\n----------------------------------------------------------------------\r\nRan 12 tests in 0.001s\r\n\r\nOK\r\nD2_TEST={\"tests\": 12, \"failures\": 0, \"errors\": 0, \"skipped\": 0}\r\n",
+        "seconds": 0.3098573999996006,
+        "terminated": false,
+        "recipe": "codex-sandbox/python-isolated",
+        "argv": [
+          "C:\\Users\\jorge\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+          "-c",
+          "windows.sandbox=mxc",
+          "-c",
+          "permissions.helmos_d2_49ee9f4015704456a7334155d92e8957.filesystem={\":minimal\"=\"read\",\"C:\\\\workspace\\\\HelmOS\\\\var\\\\d2-demos\\\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\\\fictional-repository\"=\"write\",\"C:\\\\Users\\\\jorge\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python314\"=\"read\"}",
+          "-c",
+          "permissions.helmos_d2_49ee9f4015704456a7334155d92e8957.network.enabled=false",
+          "sandbox",
+          "--include-managed-config",
+          "--permission-profile",
+          "helmos_d2_49ee9f4015704456a7334155d92e8957",
+          "--cd",
+          "C:\\workspace\\HelmOS\\var\\d2-demos\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\fictional-repository",
+          "--",
+          "C:\\Users\\jorge\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+          "-I",
+          "-B",
+          "-c",
+          "\nimport json, pathlib, sys, unittest\nsys.path.insert(0, str(pathlib.Path.cwd()))\nsuite = unittest.defaultTestLoader.discover('.', pattern='test_*.py')\nresult = unittest.TextTestRunner(verbosity=2).run(suite)\nprint('D2_TEST=' + json.dumps({'tests': result.testsRun,\n    'failures': len(result.failures), 'errors': len(result.errors), 'skipped': len(result.skipped)}))\nsys.exit(0 if result.wasSuccessful() and result.testsRun > 0 and not result.skipped else 1)\n"
+        ],
+        "counts": {
+          "tests": 12,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "passed": true,
+        "snapshot": "d522be16a6e3bf076b8aaf227172ed28496ce02b75ec9de7168f20579e8748e3"
+      }
+    ],
+    "pending_apply": null,
+    "error": null,
+    "approval_id": "e52e3860-6972-4107-912f-ce886f365f39",
+    "isolation": {
+      "exit_code": 0,
+      "log": "D2_PROBE={\"inside_write\": true, \"outside_read_denied\": true, \"outside_write_denied\": true, \"child_inside_read\": true, \"child_read_denied\": true, \"child_write_denied\": true, \"network_denied\": true}\r\n",
+      "seconds": 0.3105290999992576,
+      "terminated": false,
+      "recipe": "codex-sandbox/python-isolated",
+      "argv": [
+        "C:\\Users\\jorge\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "permissions.helmos_d2_8034489ed2d84f89b7d759d2ced10330.filesystem={\":minimal\"=\"read\",\"C:\\\\workspace\\\\HelmOS\\\\var\\\\d2-demos\\\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\\\state\\\\devteam\\\\00824e89-76b3-4c4c-88b8-3fe90cd4829f\\\\probe-bwl71ftc\\\\workspace\"=\"write\",\"C:\\\\Users\\\\jorge\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python314\"=\"read\"}",
+        "-c",
+        "permissions.helmos_d2_8034489ed2d84f89b7d759d2ced10330.network.enabled=false",
+        "sandbox",
+        "--include-managed-config",
+        "--permission-profile",
+        "helmos_d2_8034489ed2d84f89b7d759d2ced10330",
+        "--cd",
+        "C:\\workspace\\HelmOS\\var\\d2-demos\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\state\\devteam\\00824e89-76b3-4c4c-88b8-3fe90cd4829f\\probe-bwl71ftc\\workspace",
+        "--",
+        "C:\\Users\\jorge\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+        "-I",
+        "-B",
+        "-c",
+        "\nimport json, pathlib, socket, sys, subprocess\nroot = pathlib.Path.cwd()\noutside = pathlib.Path(sys.argv[1])\nresult = {}\ntry:\n    (root / 'allowed.txt').write_text('ok')\n    result['inside_write'] = (root / 'allowed.txt').read_text() == 'ok'\nexcept OSError:\n    result['inside_write'] = False\nfor name, action in [\n    ('outside_read_denied', lambda: outside.read_text()),\n    ('outside_write_denied', lambda: outside.write_text('changed')),\n]:\n    try:\n        action()\n        result[name] = False\n    except (OSError, subprocess.CalledProcessError):\n        result[name] = True\nchild_code = \"\"\"\nimport json, pathlib, sys\noutside = pathlib.Path(sys.argv[1])\nresult = {'child_inside_read': pathlib.Path('allowed.txt').read_text() == 'ok'}\nfor name, action in [('child_read_denied', lambda: outside.read_text()),\n                     ('child_write_denied', lambda: outside.write_text('child'))]:\n    try:\n        action()\n        result[name] = False\n    except OSError:\n        result[name] = True\nprint(json.dumps(result))\n\"\"\"\nchild = subprocess.run([sys.executable, '-I', '-B', '-c', child_code, str(outside)],\n                       capture_output=True, text=True, timeout=10)\nif child.returncode == 0:\n    result.update(json.loads(child.stdout))\ntry:\n    with socket.create_connection(('127.0.0.1', int(sys.argv[2])), timeout=2):\n        result['network_denied'] = False\nexcept OSError:\n    result['network_denied'] = True\nprint('D2_PROBE=' + json.dumps(result))\n",
+        "C:\\workspace\\HelmOS\\var\\d2-demos\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\state\\devteam\\00824e89-76b3-4c4c-88b8-3fe90cd4829f\\probe-bwl71ftc\\fake-secret.txt",
+        "62655"
+      ],
+      "checks": {
+        "inside_write": true,
+        "outside_read_denied": true,
+        "outside_write_denied": true,
+        "child_inside_read": true,
+        "child_read_denied": true,
+        "child_write_denied": true,
+        "network_denied": true,
+        "tree_termination": true
+      },
+      "passed": true,
+      "cancellation": {
+        "exit_code": 1,
+        "log": "D2_CHILD_STARTED\r\n",
+        "seconds": 2.1140705999987404,
+        "terminated": true,
+        "recipe": "codex-sandbox/python-isolated",
+        "argv": [
+          "C:\\Users\\jorge\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+          "-c",
+          "windows.sandbox=mxc",
+          "-c",
+          "permissions.helmos_d2_96c7d4a93df344a3a73ef70e47be7cf1.filesystem={\":minimal\"=\"read\",\"C:\\\\workspace\\\\HelmOS\\\\var\\\\d2-demos\\\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\\\state\\\\devteam\\\\00824e89-76b3-4c4c-88b8-3fe90cd4829f\\\\probe-bwl71ftc\\\\workspace\"=\"write\",\"C:\\\\Users\\\\jorge\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python314\"=\"read\"}",
+          "-c",
+          "permissions.helmos_d2_96c7d4a93df344a3a73ef70e47be7cf1.network.enabled=false",
+          "sandbox",
+          "--include-managed-config",
+          "--permission-profile",
+          "helmos_d2_96c7d4a93df344a3a73ef70e47be7cf1",
+          "--cd",
+          "C:\\workspace\\HelmOS\\var\\d2-demos\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\state\\devteam\\00824e89-76b3-4c4c-88b8-3fe90cd4829f\\probe-bwl71ftc\\workspace",
+          "--",
+          "C:\\Users\\jorge\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+          "-I",
+          "-B",
+          "-c",
+          "import subprocess,sys,time; subprocess.Popen([sys.executable,'-I','-c',\"import time,pathlib; time.sleep(3); pathlib.Path('survivor.txt').write_text('alive')\"]); print('D2_CHILD_STARTED',flush=True); time.sleep(10)"
+        ]
+      },
+      "mode": "host_applied_files; agents_have_no_shell"
+    },
+    "plan": {
+      "outcome": "completed",
+      "summary": "Bounded implementation and QA plan for normalize_tags(text).",
+      "limitations": [
+        "Planning only; no files were changed or tests run. The first proposal is intentionally expected to fail the None acceptance test until the host reproduces that failure."
+      ],
+      "acceptance": [
+        "1. normalize_tags(text) splits a comma-separated string, strips whitespace, lowercases tags, and omits empty tags.",
+        "2. Duplicate tags are removed while preserving the order of their first occurrence.",
+        "3. An empty string returns [].",
+        "4. Every non-string input, including None, raises TypeError.",
+        "5. unittest tests cover these behaviors, and README.md includes a usage example with expected output. No dependencies are added."
+      ],
+      "steps": [
+        "1. Implement the string normalization in tags.py. In the first Developer proposal only, retain the existing None -> [] guard as required by the disposable demo protocol.",
+        "2. Add unittest tests for all final acceptance criteria immediately, including a test that requires TypeError for None. Add the README usage example and expected output.",
+        "3. Have the host run the tests and reproduce the expected None test failure. Do not report the initial suite as passing or weaken the test.",
+        "4. After that failure is reproduced, change the input guard so None and every other non-string value raise TypeError. Run the full test suite and confirm it passes."
+      ],
+      "manual_qa": [
+        "Review the first proposal: normalization behavior, tests, and README example are present; the None -> [] guard remains only for the initial fault-injection stage.",
+        "Run the unittest suite against the first proposal. Expected: the None TypeError test fails, and the host records that failure.",
+        "After the guard fix, run the full unittest suite. Expected: all tests pass, including None and other non-string TypeError cases.",
+        "Check the README example against normalize_tags. Expected: its stated output matches the function result, with trimmed lowercase unique tags in first-occurrence order."
+      ]
+    },
+    "repeated_defects": 0,
+    "previous_defects": "717d3bc0b5c1cf64278cead666e029c26df9816215be39f8d847dee6d723de47",
+    "review": {
+      "outcome": "completed",
+      "summary": "Final supplied source meets the request. The earlier None defect was reproduced in the supplied failure log, then fixed; the final reported run passed all 12 tests. No blocking defects remain.",
+      "limitations": [
+        "Review used only supplied data; no independent test run or file inspection was performed."
+      ],
+      "defects": [],
+      "manual_qa": [
+        "Run unittest discovery on the final files. Expected: all 12 tests pass, including TypeError for None and other non-string inputs.",
+        "Call normalize_tags(\" Python, web, PYTHON, , Data Science \"). Expected: ['python', 'web', 'data science'], matching the README.",
+        "Call normalize_tags(\"\") and normalize_tags(\" ,  , \"). Expected: [] for both."
+      ]
+    },
+    "review_snapshot": "d522be16a6e3bf076b8aaf227172ed28496ce02b75ec9de7168f20579e8748e3"
+  },
+  "core_execution": {
+    "id": "00824e89-76b3-4c4c-88b8-3fe90cd4829f",
+    "input": {
+      "operation": "core.devteam",
+      "request": "Add normalize_tags(text) in tags.py. Split a comma-separated string, strip each tag, lowercase it, omit empty tags and remove duplicates preserving first order. Raise TypeError for any non-string input, including None. Empty input returns []. Add unittest tests and a README usage example with expected output. No dependencies. Fault-injection protocol for this disposable demo only: in the FIRST Developer proposal retain the existing None -> [] defect while implementing the rest. QA must test FINAL acceptance (None raises TypeError) immediately and never weaken that test. After the host actually reproduces this failure, Developer must fix the guard and all tests must pass. This is an explicit seeded defect, not an excuse to claim tests pass before executing them. In the output contract, completed means the file proposal is ready for QA; it does NOT mean tests pass. Do not return blocked solely because the initial seeded acceptance defect remains."
+    },
+    "route": {
+      "domain": "core",
+      "handler": "devteam",
+      "reason": "Explicit authorized D2 CLI"
+    },
+    "context": [
+      "fictional project snapshots"
+    ],
+    "capabilities": [
+      "host-applied files",
+      "fixed unittest"
+    ],
+    "status": "succeeded",
+    "started_at": "2026-10-27T20:51:03.561032+00:00",
+    "finished_at": "2026-10-27T20:52:10.340300+00:00",
+    "result": {
+      "project_id": "00824e89-76b3-4c4c-88b8-3fe90cd4829f",
+      "delivery": "C:\\workspace\\HelmOS\\var\\d2-demos\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\state\\devteam\\00824e89-76b3-4c4c-88b8-3fe90cd4829f\\delivery.md"
+    },
+    "error": null,
+    "consumption": {
+      "tokens": 95340,
+      "cost": null,
+      "measurement": "codex_cli_usage_or_unknown"
+    }
+  },
+  "human_review": {
+    "id": "e52e3860-6972-4107-912f-ce886f365f39",
+    "action": "review_output",
+    "description": "Review D2 delivery; this does not execute code or grant permissions",
+    "scope": "Fictional project 00824e89-76b3-4c4c-88b8-3fe90cd4829f",
+    "status": "pending",
+    "origin_run_id": "00824e89-76b3-4c4c-88b8-3fe90cd4829f",
+    "created_at": "2026-10-27T20:52:10.349195+00:00",
+    "resolved_at": null,
+    "transitions": [
+      {
+        "from": null,
+        "to": "pending",
+        "at": "2026-10-27T20:52:10.349195+00:00"
+      }
+    ]
+  },
+  "delivery_markdown": "# D2 delivery — 00824e89-76b3-4c4c-88b8-3fe90cd4829f\n\nState: `ready_for_acceptance`\n\nRequest: Add normalize_tags(text) in tags.py. Split a comma-separated string, strip each tag, lowercase it, omit empty tags and remove duplicates preserving first order. Raise TypeError for any non-string input, including None. Empty input returns []. Add unittest tests and a README usage example with expected output. No dependencies. Fault-injection protocol for this disposable demo only: in the FIRST Developer proposal retain the existing None -> [] defect while implementing the rest. QA must test FINAL acceptance (None raises TypeError) immediately and never weaken that test. After the host actually reproduces this failure, Developer must fix the guard and all tests must pass. This is an explicit seeded defect, not an excuse to claim tests pass before executing them. In the output contract, completed means the file proposal is ready for QA; it does NOT mean tests pass. Do not return blocked solely because the initial seeded acceptance defect remains.\n\nSnapshot: `d522be16a6e3bf076b8aaf227172ed28496ce02b75ec9de7168f20579e8748e3`\n\nChanged files: README.md, tags.py, test_dev_tags.py, test_qa_tags.py\n\nCalls: 6; observed tokens: 95340; usage unknown: False; monetary cost unknown.\n\n## Execution and tests\n\nFrom the fictional workspace, after validating isolation: `python -B -m unittest discover -s . -p \"test_*.py\" -v`. The automated runner uses the fixed isolated recipe recorded in project.json.\n\n{\"exit_code\": 1, \"log\": \"test_empty_string_returns_empty_list (test_dev_tags.NormalizeTagsTests.test_empty_string_returns_empty_list) ... ok\\r\\ntest_none_raises_type_error (test_dev_tags.NormalizeTagsTests.test_none_raises_type_error) ... FAIL\\r\\ntest_only_empty_tags_returns_empty_list (test_dev_tags.NormalizeTagsTests.test_only_empty_tags_returns_empty_list) ... ok\\r\\ntest_other_non_string_inputs_raise_type_error (test_dev_tags.NormalizeTagsTests.test_other_non_string_inputs_raise_type_error) ... ok\\r\\ntest_removes_duplicates_preserving_first_order (test_dev_tags.NormalizeTagsTests.test_removes_duplicates_preserving_first_order) ... ok\\r\\ntest_strips_lowercases_and_omits_empty_tags (test_dev_tags.NormalizeTagsTests.test_strips_lowercases_and_omits_empty_tags) ... ok\\r\\ntest_duplicates_preserve_first_occurrence_order (test_qa_tags.NormalizeTagsQATests.test_duplicates_preserve_first_occurrence_order) ... ok\\r\\ntest_empty_string_returns_empty_list (test_qa_tags.NormalizeTagsQATests.test_empty_string_returns_empty_list) ... ok\\r\\ntest_none_raises_type_error (test_qa_tags.NormalizeTagsQATests.test_none_raises_type_error) ... FAIL\\r\\ntest_only_empty_tags_returns_empty_list (test_qa_tags.NormalizeTagsQATests.test_only_empty_tags_returns_empty_list) ... ok\\r\\ntest_other_non_string_inputs_raise_type_error (test_qa_tags.NormalizeTagsQATests.test_other_non_string_inputs_raise_type_error) ... ok\\r\\ntest_readme_example (test_qa_tags.NormalizeTagsQATests.test_readme_example) ... ok\\r\\ntest_strips_lowercases_and_omits_empty_tags (test_qa_tags.NormalizeTagsQATests.test_strips_lowercases_and_omits_empty_tags) ... ok\\r\\n\\r\\n======================================================================\\r\\nFAIL: test_none_raises_type_error (test_dev_tags.NormalizeTagsTests.test_none_raises_type_error)\\r\\n----------------------------------------------------------------------\\r\\nTraceback (most recent call last):\\r\\n  File \\\"C:\\\\workspace\\\\HelmOS\\\\var\\\\d2-demos\\\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\\\fictional-repository\\\\test_dev_tags.py\\\", line 26, in test_none_raises_type_error\\r\\n    with self.assertRaises(TypeError):\\r\\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^\\r\\nAssertionError: TypeError not raised\\r\\n\\r\\n======================================================================\\r\\nFAIL: test_none_raises_type_error (test_qa_tags.NormalizeTagsQATests.test_none_raises_type_error)\\r\\n----------------------------------------------------------------------\\r\\nTraceback (most recent call last):\\r\\n  File \\\"C:\\\\workspace\\\\HelmOS\\\\var\\\\d2-demos\\\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\\\fictional-repository\\\\test_qa_tags.py\\\", line 32, in test_none_raises_type_error\\r\\n    with self.assertRaises(TypeError):\\r\\n         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^\\r\\nAssertionError: TypeError not raised\\r\\n\\r\\n----------------------------------------------------------------------\\r\\nRan 13 tests in 0.002s\\r\\n\\r\\nFAILED (failures=2)\\r\\nD2_TEST={\\\"tests\\\": 13, \\\"failures\\\": 2, \\\"errors\\\": 0, \\\"skipped\\\": 0}\\r\\n\", \"seconds\": 0.361848699998518, \"terminated\": false, \"recipe\": \"codex-sandbox/python-isolated\", \"argv\": [\"C:\\\\Users\\\\jorge\\\\AppData\\\\Roaming\\\\npm\\\\node_modules\\\\@openai\\\\codex\\\\node_modules\\\\@openai\\\\codex-win32-x64\\\\vendor\\\\x86_64-pc-windows-msvc\\\\bin\\\\codex.exe\", \"-c\", \"windows.sandbox=mxc\", \"-c\", \"permissions.helmos_d2_3b8610af3e8f4e329a928724f7c898f1.filesystem={\\\":minimal\\\"=\\\"read\\\",\\\"C:\\\\\\\\workspace\\\\\\\\HelmOS\\\\\\\\var\\\\\\\\d2-demos\\\\\\\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\\\\\\\fictional-repository\\\"=\\\"write\\\",\\\"C:\\\\\\\\Users\\\\\\\\jorge\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Programs\\\\\\\\Python\\\\\\\\Python314\\\"=\\\"read\\\"}\", \"-c\", \"permissions.helmos_d2_3b8610af3e8f4e329a928724f7c898f1.network.enabled=false\", \"sandbox\", \"--include-managed-config\", \"--permission-profile\", \"helmos_d2_3b8610af3e8f4e329a928724f7c898f1\", \"--cd\", \"C:\\\\workspace\\\\HelmOS\\\\var\\\\d2-demos\\\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\\\fictional-repository\", \"--\", \"C:\\\\Users\\\\jorge\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python314\\\\python.exe\", \"-I\", \"-B\", \"-c\", \"\\nimport json, pathlib, sys, unittest\\nsys.path.insert(0, str(pathlib.Path.cwd()))\\nsuite = unittest.defaultTestLoader.discover('.', pattern='test_*.py')\\nresult = unittest.TextTestRunner(verbosity=2).run(suite)\\nprint('D2_TEST=' + json.dumps({'tests': result.testsRun,\\n    'failures': len(result.failures), 'errors': len(result.errors), 'skipped': len(result.skipped)}))\\nsys.exit(0 if result.wasSuccessful() and result.testsRun > 0 and not result.skipped else 1)\\n\"], \"counts\": {\"tests\": 13, \"failures\": 2, \"errors\": 0, \"skipped\": 0}, \"passed\": false, \"snapshot\": \"f46e298e039c1b932975213e188c827775c3d57855dee28c4c26c93448334e85\"}\n\n{\"exit_code\": 0, \"log\": \"test_empty_string_returns_empty_list (test_dev_tags.NormalizeTagsTests.test_empty_string_returns_empty_list) ... ok\\r\\ntest_none_raises_type_error (test_dev_tags.NormalizeTagsTests.test_none_raises_type_error) ... ok\\r\\ntest_only_empty_tags_returns_empty_list (test_dev_tags.NormalizeTagsTests.test_only_empty_tags_returns_empty_list) ... ok\\r\\ntest_other_non_string_inputs_raise_type_error (test_dev_tags.NormalizeTagsTests.test_other_non_string_inputs_raise_type_error) ... ok\\r\\ntest_removes_duplicates_preserving_first_order (test_dev_tags.NormalizeTagsTests.test_removes_duplicates_preserving_first_order) ... ok\\r\\ntest_strips_lowercases_and_omits_empty_tags (test_dev_tags.NormalizeTagsTests.test_strips_lowercases_and_omits_empty_tags) ... ok\\r\\ntest_duplicates_preserve_first_occurrence_order (test_qa_tags.NormalizeTagsQATests.test_duplicates_preserve_first_occurrence_order) ... ok\\r\\ntest_empty_string_returns_empty_list (test_qa_tags.NormalizeTagsQATests.test_empty_string_returns_empty_list) ... ok\\r\\ntest_every_non_string_input_raises_type_error (test_qa_tags.NormalizeTagsQATests.test_every_non_string_input_raises_type_error) ... ok\\r\\ntest_only_empty_tags_returns_empty_list (test_qa_tags.NormalizeTagsQATests.test_only_empty_tags_returns_empty_list) ... ok\\r\\ntest_readme_example (test_qa_tags.NormalizeTagsQATests.test_readme_example) ... ok\\r\\ntest_strips_whitespace_lowercases_and_omits_empty_tags (test_qa_tags.NormalizeTagsQATests.test_strips_whitespace_lowercases_and_omits_empty_tags) ... ok\\r\\n\\r\\n----------------------------------------------------------------------\\r\\nRan 12 tests in 0.001s\\r\\n\\r\\nOK\\r\\nD2_TEST={\\\"tests\\\": 12, \\\"failures\\\": 0, \\\"errors\\\": 0, \\\"skipped\\\": 0}\\r\\n\", \"seconds\": 0.3098573999996006, \"terminated\": false, \"recipe\": \"codex-sandbox/python-isolated\", \"argv\": [\"C:\\\\Users\\\\jorge\\\\AppData\\\\Roaming\\\\npm\\\\node_modules\\\\@openai\\\\codex\\\\node_modules\\\\@openai\\\\codex-win32-x64\\\\vendor\\\\x86_64-pc-windows-msvc\\\\bin\\\\codex.exe\", \"-c\", \"windows.sandbox=mxc\", \"-c\", \"permissions.helmos_d2_49ee9f4015704456a7334155d92e8957.filesystem={\\\":minimal\\\"=\\\"read\\\",\\\"C:\\\\\\\\workspace\\\\\\\\HelmOS\\\\\\\\var\\\\\\\\d2-demos\\\\\\\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\\\\\\\fictional-repository\\\"=\\\"write\\\",\\\"C:\\\\\\\\Users\\\\\\\\jorge\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Programs\\\\\\\\Python\\\\\\\\Python314\\\"=\\\"read\\\"}\", \"-c\", \"permissions.helmos_d2_49ee9f4015704456a7334155d92e8957.network.enabled=false\", \"sandbox\", \"--include-managed-config\", \"--permission-profile\", \"helmos_d2_49ee9f4015704456a7334155d92e8957\", \"--cd\", \"C:\\\\workspace\\\\HelmOS\\\\var\\\\d2-demos\\\\31ca1195-c17c-4b5d-81a8-176d5b26a139\\\\fictional-repository\", \"--\", \"C:\\\\Users\\\\jorge\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python314\\\\python.exe\", \"-I\", \"-B\", \"-c\", \"\\nimport json, pathlib, sys, unittest\\nsys.path.insert(0, str(pathlib.Path.cwd()))\\nsuite = unittest.defaultTestLoader.discover('.', pattern='test_*.py')\\nresult = unittest.TextTestRunner(verbosity=2).run(suite)\\nprint('D2_TEST=' + json.dumps({'tests': result.testsRun,\\n    'failures': len(result.failures), 'errors': len(result.errors), 'skipped': len(result.skipped)}))\\nsys.exit(0 if result.wasSuccessful() and result.testsRun > 0 and not result.skipped else 1)\\n\"], \"counts\": {\"tests\": 12, \"failures\": 0, \"errors\": 0, \"skipped\": 0}, \"passed\": true, \"snapshot\": \"d522be16a6e3bf076b8aaf227172ed28496ce02b75ec9de7168f20579e8748e3\"}\n\n## Limitations and known issues\n\nAutomated checks passed in the recorded environment; human acceptance pending.\n\nReview used only supplied data; no independent test run or file inspection was performed.\n\nReview findings: []\n\n## Manual QA plan\n\n1. Run unittest discovery on the final files. Expected: all 12 tests pass, including TypeError for None and other non-string inputs.\n2. Call normalize_tags(\" Python, web, PYTHON, , Data Science \"). Expected: ['python', 'web', 'data science'], matching the README.\n3. Call normalize_tags(\"\") and normalize_tags(\" ,  , \"). Expected: [] for both.\n\nHuman acceptance has not been recorded. No push, merge or deployment performed.\n",
+  "prior_unsuccessful_runs": [
+    {
+      "id": "57c54b04-1f70-48fc-a579-d629cf3749bc",
+      "state": "blocked_environment",
+      "calls": 2,
+      "tokens": 29149,
+      "repairs": 0,
+      "error": "developer blocked: First Developer proposal: string normalization, final-acceptance unittest tests, and a README example are supplied. The required seeded None → [] defect remains for the host to reproduce before the guard is fixed."
+    },
+    {
+      "id": "0fda1408-2f50-4584-a9cd-8d7e1d2901fa",
+      "state": "stopped_limits",
+      "calls": 7,
+      "tokens": 114145,
+      "repairs": 2,
+      "error": "Run time or observed token budget exhausted"
+    }
+  ],
+  "limitations": [
+    "Declared seeded defect; not an unprompted bug discovery.",
+    "Reviewer inspected supplied artifacts, without its own command execution.",
+    "Canary verification is scoped to this host and fixture; not a formal OS security proof.",
+    "Raw Codex JSONL is not retained by the existing adapter.",
+    "Human acceptance remains pending."
+  ]
+}
